@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frog Prince - A Fairy Tale Platformer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a0a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Georgia', serif;
+        }
+        #gameCanvas {
+            border: 3px solid #4a2;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 200, 100, 0.3);
+            cursor: pointer;
+            image-rendering: pixelated;
+        }
+        #loading {
+            position: absolute;
+            color: #8f8;
+            font-size: 24px;
+            font-family: Georgia, serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading...</div>
+    <canvas id="gameCanvas"></canvas>
+    <script src="js/audio.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/physics.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/levels.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
