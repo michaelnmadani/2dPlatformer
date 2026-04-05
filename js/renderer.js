@@ -245,23 +245,23 @@ const Renderer = {
       ctx.stroke();
     }
 
-    // Level 3: Bowtie
+    // Level 3: Bowtie (below mouth)
     if (level >= 3) {
       ctx.fillStyle = '#cc2222';
       ctx.beginPath();
-      ctx.moveTo(0, -4);
-      ctx.lineTo(-6, -8);
+      ctx.moveTo(0, 4);
       ctx.lineTo(-6, 0);
+      ctx.lineTo(-6, 8);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(0, -4);
-      ctx.lineTo(6, -8);
+      ctx.moveTo(0, 4);
       ctx.lineTo(6, 0);
+      ctx.lineTo(6, 8);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(0, -4, 2, 0, Math.PI * 2);
+      ctx.arc(0, 4, 2, 0, Math.PI * 2);
       ctx.fill();
     }
 
