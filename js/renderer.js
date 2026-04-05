@@ -288,18 +288,39 @@ const Renderer = {
       ctx.stroke();
     }
 
-    // Level 5: Cape
+    // Level 5: Cape (behind frog, flows when jumping/falling)
     if (level >= 5) {
-      const wave = Math.sin(time * 0.003) * 3;
-      ctx.fillStyle = '#cc2222';
-      ctx.beginPath();
-      ctx.moveTo(-12, -6);
-      ctx.lineTo(-16 + wave, 14);
-      ctx.lineTo(16 + wave, 14);
-      ctx.lineTo(12, -6);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(200,30,30,0.7)';
-      ctx.fill();
+      const inAir = frog.vy !== 0;
+      const wave = Math.sin(time * 0.005) * 4;
+      const facing = frog.facing || 1;
+
+      if (inAir) {
+        // Flowing cape behind the frog when airborne
+        const capeDir = -facing;
+        const baseX = capeDir * 10;
+        ctx.fillStyle = 'rgba(200,30,30,0.8)';
+        ctx.beginPath();
+        ctx.moveTo(capeDir * 4, -8);
+        ctx.lineTo(capeDir * 6, -10);
+        ctx.quadraticCurveTo(baseX + capeDir * 12 + wave, -2, baseX + capeDir * 16 + wave * 1.5, 10);
+        ctx.quadraticCurveTo(baseX + capeDir * 8 + wave * 0.5, 14, capeDir * 2, 8);
+        ctx.closePath();
+        ctx.fill();
+        // Cape edge highlight
+        ctx.strokeStyle = 'rgba(255,80,80,0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        // Draped behind the frog when grounded — small visible edge
+        ctx.fillStyle = 'rgba(200,30,30,0.6)';
+        ctx.beginPath();
+        ctx.moveTo(-8, -6);
+        ctx.lineTo(-10, -8);
+        ctx.lineTo(-12 + wave * 0.3, 10);
+        ctx.lineTo(-6, 8);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
 
     // Level 6: Pants
