@@ -248,11 +248,11 @@ const Game = {
         this.prince = createPrince(config.prince.x, config.prince.y);
 
         this.lilypads = (config.lilypads || []).map((padCfg) => createLilypad(padCfg));
-        this.dragonflies = (config.dragonflies || []).map((df) => createDragonfly(df.x, df.y, df.range));
+        this.dragonflies = (config.dragonflies || []).map((df) => createDragonfly(df.x, df.y, df.patrolRange));
 
         this.particles = [];
         this.cameraX = 0;
-        this.levelWidth = config.width || 800;
+        this.levelWidth = config.levelWidth || 800;
 
         // Wind
         this.windActive = false;
@@ -331,10 +331,10 @@ const Game = {
                 Audio.land();
             }
             if (result.platform) {
-                if (result.platform.sinking && result.platform.startSinking) {
+                if (result.platform.type === 'sinking') {
                     result.platform.startSinking();
                 }
-                if (result.platform.disappearing && result.platform.startDisappearing) {
+                if (result.platform.type === 'disappearing') {
                     result.platform.startDisappearing();
                 }
             }

@@ -30,12 +30,12 @@ const Physics = {
             const entityRight = entity.x + entity.width;
             const prevBottom = entityBottom - entity.vy;
 
-            const horizontalOverlap = entity.x + entity.width * 0.2 < px + p.width &&
-                                      entity.x + entity.width * 0.8 > px;
+            const horizontalOverlap = entity.x + entity.width * 0.1 < px + p.width &&
+                                      entity.x + entity.width * 0.9 > px;
 
             if (horizontalOverlap &&
                 entityBottom >= py &&
-                prevBottom <= py + 8 &&
+                prevBottom <= py + 14 &&
                 entity.vy >= 0) {
                 entity.y = py - entity.height;
                 entity.vy = 0;
