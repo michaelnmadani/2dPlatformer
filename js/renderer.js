@@ -265,21 +265,27 @@ const Renderer = {
       ctx.fill();
     }
 
-    // Level 4: Vest
+    // Level 4: Monocle
     if (level >= 4) {
-      ctx.fillStyle = '#6a1b9a';
-      ctx.fillRect(-10, -3, 20, 12);
-      ctx.strokeStyle = '#4a0e6e';
+      // Monocle lens on right eye
+      ctx.strokeStyle = '#cca600';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(7, -10, 7, 0, Math.PI * 2);
+      ctx.stroke();
+      // Glass glint
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(5, -12, 2, 0.3, 1.2);
+      ctx.stroke();
+      // Chain hanging down
+      ctx.strokeStyle = '#cca600';
       ctx.lineWidth = 0.8;
-      ctx.strokeRect(-10, -3, 20, 12);
-      // Buttons
-      ctx.fillStyle = '#ddd';
       ctx.beginPath();
-      ctx.arc(0, 1, 1.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 5, 1.2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(13, -7);
+      ctx.quadraticCurveTo(16, 2, 12, 8);
+      ctx.stroke();
     }
 
     // Level 5: Cape

@@ -3,7 +3,7 @@ const Levels = {
         'Naked Frog',
         'Royal Crown',
         'Bowtie',
-        'Purple Vest',
+        'Monocle',
         'Royal Cape',
         'Blue Pants',
         'Leather Boots',
