@@ -833,7 +833,7 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawGameOver(ctx, canvas) {
+  drawGameOver(ctx, canvas, campaignMode) {
     ctx.save();
 
     // Dark overlay
@@ -853,12 +853,20 @@ const Renderer = {
     // Subtitle
     ctx.font = '22px Georgia';
     ctx.fillStyle = 'white';
-    ctx.fillText('You fell in the pond!', canvas.width / 2, canvas.height * 0.42);
+    if (campaignMode) {
+      ctx.fillText('You ran out of hearts!', canvas.width / 2, canvas.height * 0.42);
+    } else {
+      ctx.fillText('You fell in the pond!', canvas.width / 2, canvas.height * 0.42);
+    }
 
     // Retry
     ctx.font = '18px Georgia';
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.fillText('Press SPACE to Try Again', canvas.width / 2, canvas.height * 0.58);
+    if (campaignMode) {
+      ctx.fillText('Press SPACE to Restart from Level 1', canvas.width / 2, canvas.height * 0.58);
+    } else {
+      ctx.fillText('Press SPACE to Try Again', canvas.width / 2, canvas.height * 0.58);
+    }
     ctx.fillText('Press ESC for Level Select', canvas.width / 2, canvas.height * 0.66);
 
     ctx.textAlign = 'left';

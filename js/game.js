@@ -12,8 +12,8 @@ const Game = {
     state: 'TITLE',
     currentLevel: 1,
     unlockedLevel: 1,
-    lives: 3,
-    maxLives: 3,
+    lives: 5,
+    maxLives: 5,
     frog: null,
     prince: null,
     lilypads: [],
@@ -34,6 +34,10 @@ const Game = {
     windForce: 0,
     windTimer: 0,
     windConfig: null,
+    // Campaign mode: advancing through levels keeps hearts across levels
+    // Replay mode: replaying a single level from level select, no campaign penalty
+    campaignMode: false,
+    campaignLevel: 1,
     // Kiss cutscene
     kissProgress: 0,
     // Touch controls
@@ -112,10 +116,16 @@ const Game = {
             }
             if (e.key === ' ' || e.key === 'Enter') {
                 if (this.state === 'GAME_OVER') {
-                    this.startLevel(this.currentLevel);
+                    if (this.campaignMode) {
+                        // Campaign over: restart from level 1 with full hearts
+                        this.lives = this.maxLives;
+                        this.startLevel(1, true);
+                    } else {
+                        this.startLevel(this.currentLevel);
+                    }
                 } else if (this.state === 'LEVEL_COMPLETE') {
                     if (this.currentLevel < 10) {
-                        this.startLevel(this.currentLevel + 1);
+                        this.startLevel(this.currentLevel + 1, true);
                     } else {
                         this.showLevelSelect();
                     }
@@ -198,7 +208,8 @@ const Game = {
                         btn.level <= this.unlockedLevel
                     ) {
                         Audio.click();
-                        this.startLevel(btn.level);
+                        // Starting from level select = replay mode (fresh hearts, no campaign)
+                        this.startLevel(btn.level, false);
                         break;
                     }
                 }
@@ -206,7 +217,12 @@ const Game = {
 
             case 'GAME_OVER':
                 Audio.click();
-                this.startLevel(this.currentLevel);
+                if (this.campaignMode) {
+                    this.lives = this.maxLives;
+                    this.startLevel(1, true);
+                } else {
+                    this.startLevel(this.currentLevel);
+                }
                 break;
 
             case 'LEVEL_COMPLETE':
@@ -236,10 +252,19 @@ const Game = {
         this.state = 'LEVEL_SELECT';
     },
 
-    startLevel(num) {
+    startLevel(num, fromCampaign) {
         this.state = 'PLAYING';
         this.currentLevel = num;
-        this.lives = this.maxLives;
+
+        if (fromCampaign) {
+            // Campaign: keep current lives (don't reset)
+            this.campaignMode = true;
+            this.campaignLevel = num;
+        } else {
+            // Replay from level select: fresh lives, no campaign penalty
+            this.campaignMode = false;
+            this.lives = this.maxLives;
+        }
 
         const config = Levels.get(num);
 
@@ -512,7 +537,7 @@ const Game = {
 
             case 'GAME_OVER':
                 this._renderPlayingScene(ctx, canvas);
-                Renderer.drawGameOver(ctx, canvas);
+                Renderer.drawGameOver(ctx, canvas, this.campaignMode);
                 break;
 
             case 'LEVEL_COMPLETE':
