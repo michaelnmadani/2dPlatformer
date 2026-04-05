@@ -288,53 +288,88 @@ const Renderer = {
       ctx.stroke();
     }
 
-    // Level 5: Cape (behind frog, flows when jumping/falling)
+    // Level 5: Cape (only behind frog, never in front)
     if (level >= 5) {
       const inAir = frog.vy !== 0;
       const wave = Math.sin(time * 0.005) * 4;
       const facing = frog.facing || 1;
 
       if (inAir) {
-        // Flowing cape behind the frog when airborne
+        // Flowing cape trailing behind the frog when airborne
         const capeDir = -facing;
-        const baseX = capeDir * 10;
+        const baseX = capeDir * 14;
         ctx.fillStyle = 'rgba(200,30,30,0.8)';
         ctx.beginPath();
-        ctx.moveTo(capeDir * 4, -8);
-        ctx.lineTo(capeDir * 6, -10);
-        ctx.quadraticCurveTo(baseX + capeDir * 12 + wave, -2, baseX + capeDir * 16 + wave * 1.5, 10);
-        ctx.quadraticCurveTo(baseX + capeDir * 8 + wave * 0.5, 14, capeDir * 2, 8);
+        ctx.moveTo(capeDir * 10, -6);
+        ctx.lineTo(capeDir * 12, -10);
+        ctx.quadraticCurveTo(baseX + capeDir * 14 + wave, -2, baseX + capeDir * 18 + wave * 1.5, 10);
+        ctx.quadraticCurveTo(baseX + capeDir * 10 + wave * 0.5, 14, capeDir * 10, 8);
         ctx.closePath();
         ctx.fill();
-        // Cape edge highlight
         ctx.strokeStyle = 'rgba(255,80,80,0.5)';
         ctx.lineWidth = 1;
         ctx.stroke();
-      } else {
-        // Draped behind the frog when grounded — small visible edge
-        ctx.fillStyle = 'rgba(200,30,30,0.6)';
-        ctx.beginPath();
-        ctx.moveTo(-8, -6);
-        ctx.lineTo(-10, -8);
-        ctx.lineTo(-12 + wave * 0.3, 10);
-        ctx.lineTo(-6, 8);
-        ctx.closePath();
-        ctx.fill();
       }
+      // When grounded: cape is hidden behind the frog body, not visible
     }
 
-    // Level 6: Pants
+    // Level 6: Pants — colour the lower body below the bowtie blue
     if (level >= 6) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(-20, 5, 40, 14);
+      ctx.clip();
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 20, 14, 0, 0, Math.PI * 2);
       ctx.fillStyle = '#1a4a8a';
-      ctx.fillRect(-10, 6, 8, 10);
-      ctx.fillRect(2, 6, 8, 10);
+      ctx.fill();
+      ctx.restore();
     }
 
-    // Level 7: Boots
+    // Level 7: Boots — colour the feet/legs brown when jumping
     if (level >= 7) {
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(-12, 13, 8, 5);
-      ctx.fillRect(4, 13, 8, 5);
+      const jumping = frog.vy < 0;
+      const falling = frog.vy > 0;
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineCap = 'round';
+      if (jumping) {
+        // Extended legs downward — thicker brown
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(-8, 8);
+        ctx.lineTo(-14, 20);
+        ctx.lineTo(-10, 28);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(8, 8);
+        ctx.lineTo(14, 20);
+        ctx.lineTo(10, 28);
+        ctx.stroke();
+      } else if (falling) {
+        // Spread legs — thicker brown
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(-8, 6);
+        ctx.lineTo(-18, 14);
+        ctx.lineTo(-22, 8);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(8, 6);
+        ctx.lineTo(18, 14);
+        ctx.lineTo(22, 8);
+        ctx.stroke();
+      } else {
+        // Sitting — brown boots on feet tips
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-16, 0);
+        ctx.lineTo(-14, 10);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(16, 0);
+        ctx.lineTo(14, 10);
+        ctx.stroke();
+      }
     }
 
     // Level 8: Gloves
