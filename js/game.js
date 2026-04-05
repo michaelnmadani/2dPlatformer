@@ -504,7 +504,7 @@ const Game = {
 
             case 'PLAYING':
                 this._renderPlayingScene(ctx, canvas);
-                Renderer.drawHUD(ctx, canvas, this.lives, this.maxLives, this.currentLevel);
+                Renderer.drawHUD(ctx, this.currentLevel, this.lives, canvas);
                 if (this.windActive) {
                     Renderer.drawWindIndicator(ctx, canvas, this.windForce);
                 }
