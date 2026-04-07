@@ -10,70 +10,228 @@ const Renderer = {
     ctx.save();
     cameraX = cameraX || 0;
 
-    // Sky gradient — dark twilight sky
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.65);
-    skyGrad.addColorStop(0, '#0c1e3a');
-    skyGrad.addColorStop(0.5, '#152d4f');
-    skyGrad.addColorStop(1, '#1a3d5c');
+    const W = canvas.width;
+    const H = canvas.height;
+    const waterTop = H * 0.62;
+
+    // --- 1. Richer sky with moon/stars reflection ---
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+    skyGrad.addColorStop(0, '#060e1f');
+    skyGrad.addColorStop(0.15, '#0b1a32');
+    skyGrad.addColorStop(0.35, '#102545');
+    skyGrad.addColorStop(0.55, '#152d4f');
+    skyGrad.addColorStop(0.78, '#1a3858');
+    skyGrad.addColorStop(1, '#1e4462');
     ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.65);
+    ctx.fillRect(0, 0, W, H * 0.65);
 
-    // Water body — deep gradient
-    const waterTop = canvas.height * 0.62;
-    const waterGrad = ctx.createLinearGradient(0, waterTop, 0, canvas.height);
+    // Moon glow (radial gradient, top-right)
+    const moonX = W * 0.78;
+    const moonY = H * 0.12;
+    const moonGlow = ctx.createRadialGradient(moonX, moonY, 2, moonX, moonY, 80);
+    moonGlow.addColorStop(0, 'rgba(220,235,255,0.35)');
+    moonGlow.addColorStop(0.15, 'rgba(180,210,240,0.18)');
+    moonGlow.addColorStop(0.5, 'rgba(120,160,200,0.06)');
+    moonGlow.addColorStop(1, 'rgba(60,100,160,0)');
+    ctx.fillStyle = moonGlow;
+    ctx.fillRect(moonX - 80, moonY - 80, 160, 160);
+    // Moon disc
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(230,240,255,0.6)';
+    ctx.fill();
+
+    // Faint stars
+    const stars = [[W * 0.15, H * 0.08, 1.2], [W * 0.52, H * 0.05, 0.9], [W * 0.9, H * 0.18, 1.0]];
+    for (const s of stars) {
+      const flicker = 0.4 + Math.sin(time * 0.002 + s[0]) * 0.15;
+      ctx.beginPath();
+      ctx.arc(s[0], s[1], s[2], 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(200,220,255,' + flicker + ')';
+      ctx.fill();
+    }
+
+    // --- 2. Water body with horizontal color variation ---
+    // (7) Subtle color variation: greener on left, bluer on right, shifts with time
+    const colorShift = Math.sin(time * 0.0003) * 0.15;
+    const waterGrad = ctx.createLinearGradient(0, waterTop, 0, H);
     waterGrad.addColorStop(0, '#1a4a6c');
-    waterGrad.addColorStop(0.3, '#133a58');
-    waterGrad.addColorStop(0.7, '#0c2840');
-    waterGrad.addColorStop(1, '#061828');
+    waterGrad.addColorStop(0.25, '#153d5c');
+    waterGrad.addColorStop(0.5, '#0f3048');
+    waterGrad.addColorStop(0.75, '#0a2438');
+    waterGrad.addColorStop(1, '#051520');
     ctx.fillStyle = waterGrad;
-    ctx.fillRect(0, waterTop, canvas.width, canvas.height - waterTop);
+    ctx.fillRect(0, waterTop, W, H - waterTop);
 
-    // Animated wave layers (5 layers for depth)
+    // Horizontal color tint overlay for left-green / right-blue variation
+    const tintAlpha = 0.06 + Math.sin(time * 0.0004) * 0.02;
+    const tintGrad = ctx.createLinearGradient(0, waterTop, W, waterTop);
+    tintGrad.addColorStop(0, 'rgba(30,120,80,' + (tintAlpha + colorShift * 0.05) + ')');
+    tintGrad.addColorStop(0.5, 'rgba(20,80,100,0)');
+    tintGrad.addColorStop(1, 'rgba(20,60,140,' + (tintAlpha - colorShift * 0.05) + ')');
+    ctx.fillStyle = tintGrad;
+    ctx.fillRect(0, waterTop, W, H - waterTop);
+
+    // --- 3. 8 wave layers with 3 sine frequencies per layer ---
     const waveLayers = [
-      { y: waterTop - 5, color: 'rgba(40,100,160,0.35)', speed: 0.0022, freq: 0.018, amp: 6, freq2: 0.009, amp2: 4 },
-      { y: waterTop + 5,  color: 'rgba(30,80,140,0.30)',  speed: 0.0018, freq: 0.022, amp: 5, freq2: 0.011, amp2: 3 },
-      { y: waterTop + 15, color: 'rgba(22,65,120,0.25)',  speed: 0.0014, freq: 0.025, amp: 4, freq2: 0.013, amp2: 2.5 },
-      { y: waterTop + 28, color: 'rgba(15,50,100,0.20)',  speed: 0.0010, freq: 0.028, amp: 3, freq2: 0.015, amp2: 2 },
-      { y: waterTop + 42, color: 'rgba(10,35,80,0.15)',   speed: 0.0008, freq: 0.032, amp: 2.5, freq2: 0.017, amp2: 1.5 }
+      { y: waterTop - 6,  color: 'rgba(80,160,210,0.22)', speed: 0.0024, f1: 0.016, a1: 6,   f2: 0.008, a2: 4,   f3: 0.035, a3: 1.5, step: 2 },
+      { y: waterTop - 2,  color: 'rgba(65,145,200,0.20)', speed: 0.0021, f1: 0.019, a1: 5.5, f2: 0.010, a2: 3.5, f3: 0.040, a3: 1.2, step: 2 },
+      { y: waterTop + 4,  color: 'rgba(40,110,170,0.30)', speed: 0.0018, f1: 0.022, a1: 5,   f2: 0.011, a2: 3,   f3: 0.042, a3: 1.0, step: 3 },
+      { y: waterTop + 10, color: 'rgba(32,90,150,0.28)',  speed: 0.0015, f1: 0.024, a1: 4.5, f2: 0.013, a2: 2.8, f3: 0.038, a3: 0.9, step: 3 },
+      { y: waterTop + 18, color: 'rgba(24,75,130,0.24)',  speed: 0.0013, f1: 0.026, a1: 4,   f2: 0.014, a2: 2.5, f3: 0.033, a3: 0.8, step: 3 },
+      { y: waterTop + 27, color: 'rgba(18,60,110,0.20)',  speed: 0.0011, f1: 0.028, a1: 3.5, f2: 0.015, a2: 2.2, f3: 0.030, a3: 0.7, step: 4 },
+      { y: waterTop + 38, color: 'rgba(12,48,90,0.16)',   speed: 0.0009, f1: 0.030, a1: 3,   f2: 0.016, a2: 1.8, f3: 0.028, a3: 0.6, step: 4 },
+      { y: waterTop + 50, color: 'rgba(8,35,75,0.12)',    speed: 0.0007, f1: 0.033, a1: 2.5, f2: 0.018, a2: 1.5, f3: 0.025, a3: 0.5, step: 4 }
     ];
 
     for (const wl of waveLayers) {
       ctx.beginPath();
       ctx.moveTo(0, wl.y);
-      for (let x = 0; x <= canvas.width; x += 3) {
+      for (let x = 0; x <= W; x += wl.step) {
         const wx = x + cameraX;
         const sy = wl.y
-          + Math.sin(wx * wl.freq + time * wl.speed) * wl.amp
-          + Math.sin(wx * wl.freq2 + time * wl.speed * 0.7 + 1.5) * wl.amp2
-          + Math.sin(wx * 0.005 + time * 0.0005) * 2;
+          + Math.sin(wx * wl.f1 + time * wl.speed) * wl.a1
+          + Math.sin(wx * wl.f2 + time * wl.speed * 0.7 + 1.5) * wl.a2
+          + Math.sin(wx * wl.f3 + time * wl.speed * 0.4 + 3.7) * wl.a3;
         ctx.lineTo(x, sy);
       }
-      ctx.lineTo(canvas.width, canvas.height);
-      ctx.lineTo(0, canvas.height);
+      ctx.lineTo(W, H);
+      ctx.lineTo(0, H);
       ctx.closePath();
       ctx.fillStyle = wl.color;
       ctx.fill();
     }
 
-    // Subtle light caustic shimmer on water surface
-    for (let i = 0; i < 12; i++) {
-      const phase = time * 0.001 + i * 2.1;
-      const sx = ((Math.sin(phase * 0.3 + i * 1.7) * 0.5 + 0.5) * (canvas.width + 100)) - 50;
-      const sy = waterTop + 10 + Math.sin(phase * 0.5 + i) * 15;
-      const alpha = (Math.sin(phase * 1.2) * 0.3 + 0.3) * 0.15;
-      const sz = 20 + Math.sin(phase) * 10;
+    // --- 4. Specular highlights on wave crests ---
+    for (let i = 0; i < 20; i++) {
+      const seedX = (i * 137.5 + time * 0.015) % W;
+      const wx = seedX + cameraX;
+      const wl = waveLayers[0];
+      const crestY = wl.y
+        + Math.sin(wx * wl.f1 + time * wl.speed) * wl.a1
+        + Math.sin(wx * wl.f2 + time * wl.speed * 0.7 + 1.5) * wl.a2
+        + Math.sin(wx * wl.f3 + time * wl.speed * 0.4 + 3.7) * wl.a3;
+      // Only highlight near crests (when derivative is near zero and value is high)
+      const dx = 0.5;
+      const wxNext = wx + dx;
+      const nextY = wl.y
+        + Math.sin(wxNext * wl.f1 + time * wl.speed) * wl.a1
+        + Math.sin(wxNext * wl.f2 + time * wl.speed * 0.7 + 1.5) * wl.a2
+        + Math.sin(wxNext * wl.f3 + time * wl.speed * 0.4 + 3.7) * wl.a3;
+      const slope = Math.abs(nextY - crestY);
+      if (slope < 0.15) {
+        const brightness = 0.25 + Math.sin(time * 0.003 + i * 0.8) * 0.1;
+        const radius = 1.5 + Math.sin(time * 0.002 + i * 1.3) * 0.8;
+        ctx.beginPath();
+        ctx.arc(seedX, crestY, radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,240,255,' + brightness + ')';
+        ctx.fill();
+        // Soft glow around highlight
+        const glowGrad = ctx.createRadialGradient(seedX, crestY, 0, seedX, crestY, radius * 4);
+        glowGrad.addColorStop(0, 'rgba(180,230,255,' + (brightness * 0.4) + ')');
+        glowGrad.addColorStop(1, 'rgba(180,230,255,0)');
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(seedX - radius * 4, crestY - radius * 4, radius * 8, radius * 8);
+      }
+    }
+
+    // --- 5. Surface reflection band ---
+    const reflAlpha = 0.12 + Math.sin(time * 0.0008) * 0.04;
+    const reflGrad = ctx.createLinearGradient(0, waterTop - 8, 0, waterTop + 20);
+    reflGrad.addColorStop(0, 'rgba(140,190,220,' + reflAlpha + ')');
+    reflGrad.addColorStop(0.3, 'rgba(100,160,200,' + (reflAlpha * 0.6) + ')');
+    reflGrad.addColorStop(1, 'rgba(60,120,170,0)');
+    ctx.fillStyle = reflGrad;
+    ctx.fillRect(0, waterTop - 8, W, 28);
+
+    // Moon reflection on water surface
+    const moonReflX = moonX + Math.sin(time * 0.001) * 8;
+    const moonReflGrad = ctx.createRadialGradient(moonReflX, waterTop + 12, 1, moonReflX, waterTop + 12, 40);
+    moonReflGrad.addColorStop(0, 'rgba(200,220,240,0.12)');
+    moonReflGrad.addColorStop(0.4, 'rgba(150,180,210,0.05)');
+    moonReflGrad.addColorStop(1, 'rgba(100,140,180,0)');
+    ctx.fillStyle = moonReflGrad;
+    ctx.fillRect(moonReflX - 40, waterTop, 80, 30);
+
+    // --- 6. Underwater caustic light patterns ---
+    const waterDepth = H - waterTop;
+    for (let i = 0; i < 36; i++) {
+      const row = Math.floor(i / 6);
+      const col = i % 6;
+      const baseX = (col + 0.5) * (W / 6);
+      const baseY = waterTop + 15 + row * (waterDepth * 0.14);
+      const t1 = time * 0.0008 + i * 1.7;
+      const t2 = time * 0.0006 + i * 2.3;
+      // Overlapping sine patterns at different angles for caustic net
+      const cx = baseX + Math.sin(t1 * 0.7 + col * 2.1) * 18 + Math.sin(t2 * 1.1) * 10;
+      const cy = baseY + Math.sin(t1 * 0.5 + row * 1.8) * 8 + Math.cos(t2 * 0.8 + col) * 6;
+      // Brighter near surface, fade deeper
+      const depthFrac = (cy - waterTop) / waterDepth;
+      const causticAlpha = Math.max(0, (0.14 - depthFrac * 0.12)) * (0.6 + Math.sin(t1 * 1.5) * 0.4);
+      if (causticAlpha > 0.01) {
+        const sz = 8 + Math.sin(t1 * 0.9 + i) * 5;
+        const szY = 3 + Math.sin(t2 * 0.7) * 2;
+        const angle = Math.sin(t1 * 0.3 + i * 0.5) * 0.5;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, sz, szY, angle, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(100,180,220,' + causticAlpha + ')';
+        ctx.fill();
+      }
+    }
+
+    // --- 7. Subsurface light shafts ---
+    for (let i = 0; i < 4; i++) {
+      const shaftX = W * (0.15 + i * 0.22) + Math.sin(time * 0.0005 + i * 1.5) * 25;
+      const topW = 8 + Math.sin(time * 0.0007 + i * 2.0) * 3;
+      const botW = 30 + Math.sin(time * 0.0004 + i * 1.2) * 10;
+      const shaftH = waterDepth * 0.6;
+      const shaftAlpha = 0.04 + Math.sin(time * 0.0006 + i * 1.8) * 0.015;
+      const shaftGrad = ctx.createLinearGradient(0, waterTop + 5, 0, waterTop + 5 + shaftH);
+      shaftGrad.addColorStop(0, 'rgba(100,180,220,' + shaftAlpha + ')');
+      shaftGrad.addColorStop(0.4, 'rgba(70,140,190,' + (shaftAlpha * 0.5) + ')');
+      shaftGrad.addColorStop(1, 'rgba(40,100,160,0)');
       ctx.beginPath();
-      ctx.ellipse(sx, sy, sz, 3, Math.sin(phase * 0.2) * 0.3, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(120,180,220,' + alpha + ')';
+      ctx.moveTo(shaftX - topW, waterTop + 5);
+      ctx.lineTo(shaftX + topW, waterTop + 5);
+      ctx.lineTo(shaftX + botW, waterTop + 5 + shaftH);
+      ctx.lineTo(shaftX - botW, waterTop + 5 + shaftH);
+      ctx.closePath();
+      ctx.fillStyle = shaftGrad;
       ctx.fill();
     }
 
+    // --- 8. Bubble particles ---
+    for (let i = 0; i < 6; i++) {
+      const seed = i * 73.17;
+      const period = 4000 + i * 1100;
+      const phase = ((time + seed * 300) % period) / period; // 0 to 1, cycling
+      const bx = (W * (0.1 + i * 0.15) + Math.sin(seed + time * 0.0003) * 30) % W;
+      const by = H - phase * (H - waterTop - 5);
+      // Only draw if within water
+      if (by > waterTop + 5) {
+        const radius = 1 + (i % 3);
+        const bubbleAlpha = 0.15 + Math.sin(time * 0.003 + seed) * 0.05;
+        // Fade out near surface
+        const nearSurface = Math.max(0, 1 - (by - waterTop - 5) / 20);
+        const finalAlpha = bubbleAlpha * (1 - nearSurface * 0.8);
+        ctx.beginPath();
+        ctx.arc(bx, by, radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(170,215,240,' + finalAlpha + ')';
+        ctx.fill();
+        // Tiny highlight on bubble
+        ctx.beginPath();
+        ctx.arc(bx - radius * 0.3, by - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,240,255,' + (finalAlpha * 0.8) + ')';
+        ctx.fill();
+      }
+    }
+
     // Dark depth at very bottom
-    const depthGrad = ctx.createLinearGradient(0, canvas.height - 60, 0, canvas.height);
+    const depthGrad = ctx.createLinearGradient(0, H - 60, 0, H);
     depthGrad.addColorStop(0, 'rgba(4,12,30,0)');
     depthGrad.addColorStop(1, 'rgba(4,12,30,0.7)');
     ctx.fillStyle = depthGrad;
-    ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+    ctx.fillRect(0, H - 60, W, 60);
 
     ctx.restore();
   },
