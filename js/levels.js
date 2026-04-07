@@ -38,15 +38,15 @@ const Levels = {
                     { x: 2190, y: 400, width: 100, type: 'static' },
                     { x: 2330, y: 400, width: 95,  type: 'static' },
                     { x: 2470, y: 400, width: 90,  type: 'static' },
-                    // Final pad under prince (reduced gap — 20% closer)
-                    { x: 3190, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 2830, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 3200, y: 355 },
+                prince: { x: 2840, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 3400
+                levelWidth: 3100
             },
 
             // Level 2 — Varied Gaps ~4200 wide
@@ -73,15 +73,15 @@ const Levels = {
                     { x: 2710, y: 400, width: 80,  type: 'static' },
                     { x: 2870, y: 390, width: 75,  type: 'static' },
                     { x: 3020, y: 400, width: 90,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 3690, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 3355, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 3700, y: 355 },
+                prince: { x: 3365, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 3900
+                levelWidth: 3600
             },
 
             // Level 3 — Moving Pads ~4800 wide
@@ -110,15 +110,15 @@ const Levels = {
                     { x: 3120, y: 395, width: 80,  type: 'static' },
                     { x: 3280, y: 390, width: 70,  type: 'moving', moveSpeed: 1.2, moveRange: 55 },
                     { x: 3440, y: 400, width: 80,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 4190, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 3815, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 4200, y: 355 },
+                prince: { x: 3825, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4400
+                levelWidth: 4100
             },
 
             // Level 4 — Sinking Pads ~4800 wide
@@ -146,15 +146,15 @@ const Levels = {
                     { x: 3020, y: 390, width: 70,  type: 'sinking' },
                     { x: 3190, y: 400, width: 75,  type: 'static' },
                     { x: 3350, y: 395, width: 80,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 4090, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 3720, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 4100, y: 355 },
+                prince: { x: 3730, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4300
+                levelWidth: 4000
             },
 
             // Level 5 — Dragonflies! ~5400 wide
@@ -185,8 +185,8 @@ const Levels = {
                     { x: 3430, y: 400, width: 65,  type: 'static' },
                     { x: 3590, y: 390, width: 70,  type: 'static' },
                     { x: 3750, y: 400, width: 75,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 4630, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 4190, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [
                     { x: 370,  y: 320, patrolRange: 100 },
@@ -197,11 +197,11 @@ const Levels = {
                     { x: 2800, y: 290, patrolRange: 100 },
                     { x: 3400, y: 310, patrolRange: 110 }
                 ],
-                prince: { x: 4640, y: 355 },
+                prince: { x: 4200, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4900
+                levelWidth: 4500
             },
 
             // Level 6 — Wind ~5400 wide
@@ -231,15 +231,15 @@ const Levels = {
                     { x: 3270, y: 400, width: 65,  type: 'static' },
                     { x: 3430, y: 395, width: 60,  type: 'static' },
                     { x: 3590, y: 400, width: 70,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 4470, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 4030, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 4480, y: 355 },
+                prince: { x: 4040, y: 355 },
                 wind: { force: 2, interval: 180, duration: 120 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4700
+                levelWidth: 4300
             },
 
             // Level 7 — Moving + Sinking Combo ~6000 wide
@@ -271,8 +271,8 @@ const Levels = {
                     { x: 3620, y: 395, width: 55,  type: 'sinking' },
                     { x: 3780, y: 400, width: 65,  type: 'static' },
                     { x: 3940, y: 390, width: 70,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 4890, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 4415, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [
                     { x: 500,  y: 310, patrolRange: 100 },
@@ -281,11 +281,11 @@ const Levels = {
                     { x: 2600, y: 310, patrolRange: 110 },
                     { x: 3400, y: 290, patrolRange: 100 }
                 ],
-                prince: { x: 4900, y: 355 },
+                prince: { x: 4425, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 5100
+                levelWidth: 4700
             },
 
             // Level 8 — Fast Moving ~6600 wide
@@ -318,8 +318,8 @@ const Levels = {
                     { x: 4210, y: 395, width: 55,  type: 'static' },
                     { x: 4390, y: 390, width: 50,  type: 'moving', moveSpeed: 2.0, moveRange: 75 },
                     { x: 4570, y: 400, width: 60,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 5510, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 5040, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [
                     { x: 600,  y: 300, patrolRange: 100 },
@@ -329,11 +329,11 @@ const Levels = {
                     { x: 3600, y: 300, patrolRange: 100 },
                     { x: 4400, y: 280, patrolRange: 110 }
                 ],
-                prince: { x: 5520, y: 355 },
+                prince: { x: 5050, y: 355 },
                 wind: { force: 1.5, interval: 240, duration: 90 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 5800
+                levelWidth: 5300
             },
 
             // Level 9 — Disappearing Pads ~7200 wide
@@ -368,8 +368,8 @@ const Levels = {
                     { x: 4330, y: 390, width: 50,  type: 'disappearing' },
                     { x: 4500, y: 400, width: 55,  type: 'static' },
                     { x: 4670, y: 395, width: 60,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 5700, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 5185, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [
                     { x: 450,  y: 310, patrolRange: 90 },
@@ -381,11 +381,11 @@ const Levels = {
                     { x: 3900, y: 310, patrolRange: 90 },
                     { x: 4500, y: 290, patrolRange: 100 }
                 ],
-                prince: { x: 5710, y: 355 },
+                prince: { x: 5195, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 5900
+                levelWidth: 5400
             },
 
             // Level 10 — Everything Combined (Boss Level) ~8400 wide
@@ -426,8 +426,8 @@ const Levels = {
                     { x: 5700, y: 400, width: 55,  type: 'static' },
                     { x: 5880, y: 395, width: 50,  type: 'sinking' },
                     { x: 6060, y: 400, width: 60,  type: 'static' },
-                    // Final pad (20% closer gap)
-                    { x: 7210, y: 400, width: 80,  type: 'static' }
+                    // Final pad under prince
+                    { x: 6635, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [
                     { x: 400,  y: 300, patrolRange: 110 },
@@ -441,11 +441,11 @@ const Levels = {
                     { x: 4800, y: 300, patrolRange: 110 },
                     { x: 5400, y: 280, patrolRange: 120 }
                 ],
-                prince: { x: 7220, y: 355 },
+                prince: { x: 6645, y: 355 },
                 wind: { force: 2.5, interval: 150, duration: 100 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 7500
+                levelWidth: 6900
             }
         };
 

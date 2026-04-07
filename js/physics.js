@@ -23,7 +23,7 @@ const Physics = {
             if (!p.active) continue;
 
             const px = p.x + (p.offsetX || 0);
-            const py = p.y + (p.offsetY || 0);
+            const py = p.y + (p.offsetY || 0) + (p.bobY || 0);
 
             // Check if frog is above the platform and falling
             const entityBottom = entity.y + entity.height;

@@ -114,6 +114,11 @@ function createLilypad(config) {
     hasFlower: Math.random() > 0.7,
 
     update: function (time) {
+      // Water bob — gentle up/down matching the water surface
+      var worldX = this.x + (this.offsetX || 0);
+      this.bobY = Math.sin(worldX * 0.02 + time * 0.002) * 3
+                + Math.sin(worldX * 0.013 + time * 0.0015) * 2;
+
       if (this.type === 'moving') {
         this.offsetX = Math.sin(time * 0.001 * this.moveSpeed) * this.moveRange;
       }

@@ -564,14 +564,14 @@ const Game = {
 
     _renderPlayingScene(ctx, canvas) {
         // Water background
-        Renderer.drawWater(ctx, canvas, this.time);
+        Renderer.drawWater(ctx, canvas, this.time, this.cameraX);
 
         ctx.save();
         ctx.translate(-this.cameraX, 0);
 
         // Lilypads
         for (const pad of this.lilypads) {
-            Renderer.drawLilypad(ctx, pad);
+            Renderer.drawLilypad(ctx, pad, this.time);
         }
 
         // Dragonflies

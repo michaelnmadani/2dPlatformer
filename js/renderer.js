@@ -1,90 +1,208 @@
 const Renderer = {
 
+  // Shared function to get water bob offset at a world X position
+  _getWaterBob(worldX, time) {
+    return Math.sin(worldX * 0.02 + time * 0.002) * 3
+         + Math.sin(worldX * 0.013 + time * 0.0015) * 2;
+  },
+
   drawWater(ctx, canvas, time, cameraX) {
     ctx.save();
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grad.addColorStop(0, '#1a3a5c');
-    grad.addColorStop(1, '#0a1a3c');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    cameraX = cameraX || 0;
 
-    const waterY = canvas.height * 0.7;
-    const colors = ['rgba(30,80,140,0.4)', 'rgba(20,60,120,0.3)', 'rgba(10,40,100,0.2)'];
-    const speeds = [0.002, 0.0015, 0.001];
-    const amplitudes = [8, 5, 3];
-    const offsets = [0, 50, 100];
+    // Sky gradient — dark twilight sky
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.65);
+    skyGrad.addColorStop(0, '#0c1e3a');
+    skyGrad.addColorStop(0.5, '#152d4f');
+    skyGrad.addColorStop(1, '#1a3d5c');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.65);
 
-    for (let layer = 0; layer < 3; layer++) {
+    // Water body — deep gradient
+    const waterTop = canvas.height * 0.62;
+    const waterGrad = ctx.createLinearGradient(0, waterTop, 0, canvas.height);
+    waterGrad.addColorStop(0, '#1a4a6c');
+    waterGrad.addColorStop(0.3, '#133a58');
+    waterGrad.addColorStop(0.7, '#0c2840');
+    waterGrad.addColorStop(1, '#061828');
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(0, waterTop, canvas.width, canvas.height - waterTop);
+
+    // Animated wave layers (5 layers for depth)
+    const waveLayers = [
+      { y: waterTop - 5, color: 'rgba(40,100,160,0.35)', speed: 0.0022, freq: 0.018, amp: 6, freq2: 0.009, amp2: 4 },
+      { y: waterTop + 5,  color: 'rgba(30,80,140,0.30)',  speed: 0.0018, freq: 0.022, amp: 5, freq2: 0.011, amp2: 3 },
+      { y: waterTop + 15, color: 'rgba(22,65,120,0.25)',  speed: 0.0014, freq: 0.025, amp: 4, freq2: 0.013, amp2: 2.5 },
+      { y: waterTop + 28, color: 'rgba(15,50,100,0.20)',  speed: 0.0010, freq: 0.028, amp: 3, freq2: 0.015, amp2: 2 },
+      { y: waterTop + 42, color: 'rgba(10,35,80,0.15)',   speed: 0.0008, freq: 0.032, amp: 2.5, freq2: 0.017, amp2: 1.5 }
+    ];
+
+    for (const wl of waveLayers) {
       ctx.beginPath();
-      const y0 = waterY + layer * 15;
-      ctx.moveTo(0, y0);
-      for (let x = 0; x <= canvas.width; x += 4) {
-        const worldX = x + cameraX;
-        const sy = y0 + Math.sin(worldX * 0.02 + time * speeds[layer] + offsets[layer]) * amplitudes[layer]
-                      + Math.sin(worldX * 0.01 + time * speeds[layer] * 0.7) * amplitudes[layer] * 0.5;
+      ctx.moveTo(0, wl.y);
+      for (let x = 0; x <= canvas.width; x += 3) {
+        const wx = x + cameraX;
+        const sy = wl.y
+          + Math.sin(wx * wl.freq + time * wl.speed) * wl.amp
+          + Math.sin(wx * wl.freq2 + time * wl.speed * 0.7 + 1.5) * wl.amp2
+          + Math.sin(wx * 0.005 + time * 0.0005) * 2;
         ctx.lineTo(x, sy);
       }
       ctx.lineTo(canvas.width, canvas.height);
       ctx.lineTo(0, canvas.height);
       ctx.closePath();
-      ctx.fillStyle = colors[layer];
+      ctx.fillStyle = wl.color;
       ctx.fill();
     }
 
-    ctx.fillStyle = 'rgba(5,20,50,0.6)';
-    ctx.fillRect(0, waterY + 45, canvas.width, canvas.height - waterY - 45);
+    // Subtle light caustic shimmer on water surface
+    for (let i = 0; i < 12; i++) {
+      const phase = time * 0.001 + i * 2.1;
+      const sx = ((Math.sin(phase * 0.3 + i * 1.7) * 0.5 + 0.5) * (canvas.width + 100)) - 50;
+      const sy = waterTop + 10 + Math.sin(phase * 0.5 + i) * 15;
+      const alpha = (Math.sin(phase * 1.2) * 0.3 + 0.3) * 0.15;
+      const sz = 20 + Math.sin(phase) * 10;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, sz, 3, Math.sin(phase * 0.2) * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(120,180,220,' + alpha + ')';
+      ctx.fill();
+    }
+
+    // Dark depth at very bottom
+    const depthGrad = ctx.createLinearGradient(0, canvas.height - 60, 0, canvas.height);
+    depthGrad.addColorStop(0, 'rgba(4,12,30,0)');
+    depthGrad.addColorStop(1, 'rgba(4,12,30,0.7)');
+    ctx.fillStyle = depthGrad;
+    ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+
     ctx.restore();
   },
 
-  drawLilypad(ctx, pad) {
+  drawLilypad(ctx, pad, time) {
     ctx.save();
+    time = time || 0;
+
     if (pad.opacity !== undefined && pad.opacity < 1) {
       ctx.globalAlpha = pad.opacity;
     }
-    const cx = pad.x;
-    const cy = pad.y;
+
+    // Calculate water bob — lilypad gently moves with the water
+    const worldX = pad.x + (pad.offsetX || 0);
+    const bob = this._getWaterBob(worldX, time);
+    const tilt = Math.sin(worldX * 0.015 + time * 0.0018) * 0.04; // slight rotational tilt
+
+    const cx = pad.x + (pad.offsetX || 0);
+    const cy = pad.y + (pad.offsetY || 0) + bob;
     const rx = (pad.width || 60) / 2;
-    const ry = 12;
+    const ry = 10;
 
+    ctx.translate(cx, cy);
+    ctx.rotate(tilt);
+
+    // Shadow/reflection under the pad
     ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0.3, Math.PI * 2 - 0.3);
-    ctx.lineTo(cx, cy);
-    ctx.closePath();
-    ctx.fillStyle = '#2d8a4e';
+    ctx.ellipse(1, 4, rx + 2, ry + 1, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(5,20,40,0.25)';
     ctx.fill();
-    ctx.strokeStyle = '#1e6b38';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
 
-    // Vein lines
+    // Main lilypad shape with notch
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx - rx * 0.6, cy - ry * 0.5);
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx - rx * 0.5, cy + ry * 0.6);
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + rx * 0.7, cy - ry * 0.3);
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + rx * 0.7, cy + ry * 0.4);
-    ctx.strokeStyle = 'rgba(30,107,56,0.5)';
-    ctx.lineWidth = 0.8;
+    ctx.ellipse(0, 0, rx, ry, 0, 0.3, Math.PI * 2 - 0.3);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+
+    // Gradient fill for depth
+    const padGrad = ctx.createRadialGradient(-rx * 0.2, -ry * 0.2, rx * 0.1, 0, 0, rx);
+    padGrad.addColorStop(0, '#3aad5e');
+    padGrad.addColorStop(0.5, '#2d8a4e');
+    padGrad.addColorStop(1, '#1e6b38');
+    ctx.fillStyle = padGrad;
+    ctx.fill();
+
+    // Outer edge
+    ctx.strokeStyle = '#175a2e';
+    ctx.lineWidth = 1.8;
     ctx.stroke();
 
-    if (pad.hasFlower) {
-      const fx = cx + rx * 0.3;
-      const fy = cy - ry * 0.8;
-      for (let i = 0; i < 5; i++) {
-        const angle = (i / 5) * Math.PI * 2;
+    // Inner lighter ring
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.75, ry * 0.7, 0, 0.4, Math.PI * 2 - 0.4);
+    ctx.strokeStyle = 'rgba(80,180,100,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Vein lines radiating from center
+    ctx.strokeStyle = 'rgba(30,107,56,0.4)';
+    ctx.lineWidth = 0.7;
+    const veins = [
+      [-0.65, -0.55], [-0.55, 0.6], [0.7, -0.35], [0.7, 0.45],
+      [-0.3, -0.75], [0.35, -0.7], [-0.8, 0.1], [0.85, 0.1]
+    ];
+    for (const v of veins) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      const vx = v[0] * rx;
+      const vy = v[1] * ry;
+      ctx.quadraticCurveTo(vx * 0.5 + vy * 0.1, vy * 0.5 - vx * 0.05, vx, vy);
+      ctx.stroke();
+    }
+
+    // Subtle highlight (light reflection)
+    ctx.beginPath();
+    ctx.ellipse(-rx * 0.25, -ry * 0.3, rx * 0.3, ry * 0.25, -0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(140,220,150,0.15)';
+    ctx.fill();
+
+    // Water droplets on surface (2-3 tiny highlights)
+    for (let d = 0; d < 3; d++) {
+      const dx = Math.sin(worldX + d * 47) * rx * 0.5;
+      const dy = Math.cos(worldX + d * 31) * ry * 0.4;
+      if (dx * dx / (rx * rx) + dy * dy / (ry * ry) < 0.6) {
         ctx.beginPath();
-        ctx.arc(fx + Math.cos(angle) * 4, fy + Math.sin(angle) * 4, 3, 0, Math.PI * 2);
-        ctx.fillStyle = '#ff88aa';
+        ctx.arc(dx, dy, 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(180,230,255,0.3)';
         ctx.fill();
       }
+    }
+
+    // Flower
+    if (pad.hasFlower) {
+      const fx = rx * 0.3;
+      const fy = -ry * 0.6;
+      // Petals
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2 + time * 0.0003;
+        ctx.beginPath();
+        ctx.ellipse(
+          fx + Math.cos(angle) * 4.5,
+          fy + Math.sin(angle) * 4.5,
+          3.5, 2.5,
+          angle, 0, Math.PI * 2
+        );
+        ctx.fillStyle = i % 2 === 0 ? '#ff88aa' : '#ff6699';
+        ctx.fill();
+      }
+      // Center
       ctx.beginPath();
       ctx.arc(fx, fy, 2.5, 0, Math.PI * 2);
       ctx.fillStyle = '#ffdd44';
       ctx.fill();
+      ctx.beginPath();
+      ctx.arc(fx - 0.5, fy - 0.5, 1, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,200,0.5)';
+      ctx.fill();
     }
+
+    // Water ripple rings around the pad
+    ctx.rotate(-tilt); // undo tilt for ripples
+    const rippleAlpha = 0.08 + Math.sin(time * 0.002 + worldX) * 0.04;
+    ctx.strokeStyle = 'rgba(100,180,220,' + rippleAlpha + ')';
+    ctx.lineWidth = 0.6;
+    const ripplePhase = (time * 0.001 + worldX * 0.01) % 1;
+    const rippleScale = 1 + ripplePhase * 0.3;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, rx * rippleScale + 4, ry * rippleScale + 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
 
     ctx.restore();
   },
