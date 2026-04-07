@@ -78,6 +78,225 @@ const Renderer = {
     ctx.restore();
   },
 
+  // 10 lilypad color palettes
+  _padVariants: [
+    // 0: Classic green
+    { inner: '#3aad5e', mid: '#2d8a4e', outer: '#1e6b38', edge: '#175a2e', vein: 'rgba(30,107,56,0.4)', highlight: 'rgba(140,220,150,0.15)' },
+    // 1: Dark emerald
+    { inner: '#2a9050', mid: '#1e7040', outer: '#155a30', edge: '#104a25', vein: 'rgba(20,90,40,0.4)', highlight: 'rgba(100,200,130,0.12)' },
+    // 2: Yellow-green (young pad)
+    { inner: '#60c060', mid: '#45a848', outer: '#2e8a35', edge: '#227528', vein: 'rgba(50,130,50,0.35)', highlight: 'rgba(180,240,160,0.18)' },
+    // 3: Blue-green (cool)
+    { inner: '#35a070', mid: '#2a8060', outer: '#1e6850', edge: '#155840', vein: 'rgba(25,100,65,0.4)', highlight: 'rgba(130,210,180,0.14)' },
+    // 4: Olive green (aged)
+    { inner: '#5a9a40', mid: '#4a8035', outer: '#3a6828', edge: '#2e5520', vein: 'rgba(60,100,35,0.4)', highlight: 'rgba(160,210,120,0.12)' },
+    // 5: Rich green with brown tint
+    { inner: '#3a9a50', mid: '#2e7a42', outer: '#226035', edge: '#1a5028', vein: 'rgba(35,95,45,0.45)', highlight: 'rgba(130,200,140,0.13)' },
+    // 6: Bright spring green
+    { inner: '#50c868', mid: '#3aaa55', outer: '#288a40', edge: '#1e7530', vein: 'rgba(40,140,55,0.35)', highlight: 'rgba(170,240,170,0.2)' },
+    // 7: Deep forest green
+    { inner: '#28854a', mid: '#1e6a3a', outer: '#14552c', edge: '#0e4520', vein: 'rgba(18,80,35,0.45)', highlight: 'rgba(100,180,120,0.1)' },
+    // 8: Sage green (muted)
+    { inner: '#6aaa6a', mid: '#558a55', outer: '#407040', edge: '#355a35', vein: 'rgba(60,110,60,0.35)', highlight: 'rgba(160,210,160,0.15)' },
+    // 9: Teal-green
+    { inner: '#30a878', mid: '#258868', outer: '#1a6a55', edge: '#125845', vein: 'rgba(22,105,70,0.4)', highlight: 'rgba(120,220,190,0.14)' }
+  ],
+
+  // 10 lilypad structural variations (notch angle, notch size, vein pattern, shape)
+  _padShapes: [
+    { notchStart: 0.3, notchEnd: 0.3, veins: [[-0.65,-0.55],[-0.55,0.6],[0.7,-0.35],[0.7,0.45],[-0.3,-0.75],[0.35,-0.7],[-0.8,0.1],[0.85,0.1]], spots: 3 },
+    { notchStart: 0.2, notchEnd: 0.2, veins: [[-0.7,-0.4],[-0.6,0.5],[0.75,-0.25],[0.65,0.5],[-0.4,-0.8],[0.3,-0.75]], spots: 2 },
+    { notchStart: 0.4, notchEnd: 0.4, veins: [[-0.5,-0.6],[-0.7,0.3],[0.6,-0.5],[0.8,0.2],[-0.2,-0.8],[0.4,-0.65],[-0.85,0.15],[0.75,0.45]], spots: 4 },
+    { notchStart: 0.15, notchEnd: 0.15, veins: [[-0.6,-0.5],[-0.45,0.65],[0.55,-0.45],[0.7,0.4],[-0.35,-0.7],[0.25,-0.8],[0.9,0.05]], spots: 1 },
+    { notchStart: 0.35, notchEnd: 0.25, veins: [[-0.7,-0.3],[-0.5,0.55],[0.65,-0.4],[0.6,0.55],[-0.25,-0.8],[0.4,-0.6],[-0.85,-0.1],[0.85,0.2]], spots: 3 },
+    { notchStart: 0.25, notchEnd: 0.35, veins: [[-0.55,-0.6],[-0.65,0.4],[0.7,-0.3],[0.75,0.35],[-0.3,-0.75],[0.2,-0.8]], spots: 2 },
+    { notchStart: 0.5, notchEnd: 0.5, veins: [[-0.6,-0.45],[-0.5,0.55],[0.6,-0.5],[0.65,0.5],[-0.4,-0.7],[0.35,-0.7],[-0.8,0.2],[0.8,0.15],[-0.75,0.4]], spots: 5 },
+    { notchStart: 0.2, notchEnd: 0.3, veins: [[-0.7,-0.35],[-0.55,0.6],[0.7,-0.4],[0.7,0.4],[-0.85,0.05]], spots: 2 },
+    { notchStart: 0.3, notchEnd: 0.2, veins: [[-0.6,-0.5],[-0.6,0.5],[0.65,-0.4],[0.65,0.45],[-0.3,-0.8],[0.3,-0.75],[-0.8,0.2],[0.85,0.1]], spots: 3 },
+    { notchStart: 0.45, notchEnd: 0.35, veins: [[-0.55,-0.55],[-0.7,0.35],[0.7,-0.3],[0.55,0.6],[-0.2,-0.8],[0.45,-0.6],[-0.9,0.0],[0.9,0.0]], spots: 4 }
+  ],
+
+  // 5 flower types
+  _drawFlower(ctx, fx, fy, flowerType, time) {
+    ctx.save();
+    ctx.translate(fx, fy);
+    const t = time || 0;
+    const sway = Math.sin(t * 0.002) * 0.08;
+    ctx.rotate(sway);
+
+    switch (flowerType) {
+      case 0: // Water lily — white/pink layered petals
+        // Outer petals
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + t * 0.0002;
+          ctx.save();
+          ctx.rotate(a);
+          ctx.beginPath();
+          ctx.ellipse(5.5, 0, 5, 2.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,240,245,0.9)' : 'rgba(255,220,235,0.85)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(220,180,200,0.4)';
+          ctx.lineWidth = 0.4;
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Inner petals
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 + 0.3 + t * 0.0003;
+          ctx.save();
+          ctx.rotate(a);
+          ctx.beginPath();
+          ctx.ellipse(3, 0, 3.5, 1.8, 0, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,210,230,0.9)';
+          ctx.fill();
+          ctx.restore();
+        }
+        // Center stamens
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffdd44';
+        ctx.fill();
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * 1.5, Math.sin(a) * 1.5, 0.6, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffaa22';
+          ctx.fill();
+        }
+        break;
+
+      case 1: // Lotus — pink with pointed petals
+        for (let layer = 0; layer < 3; layer++) {
+          const count = layer === 0 ? 8 : layer === 1 ? 6 : 4;
+          const dist = layer === 0 ? 6 : layer === 1 ? 4 : 2.5;
+          const petalW = layer === 0 ? 4.5 : layer === 1 ? 3.5 : 2.5;
+          const petalH = layer === 0 ? 2 : layer === 1 ? 1.5 : 1.2;
+          for (let i = 0; i < count; i++) {
+            const a = (i / count) * Math.PI * 2 + layer * 0.2 + t * 0.00015;
+            ctx.save();
+            ctx.rotate(a);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(dist * 0.5, -petalH * 1.5, dist, 0);
+            ctx.quadraticCurveTo(dist * 0.5, petalH * 1.5, 0, 0);
+            const pink = layer === 0 ? '#e87aa0' : layer === 1 ? '#f090b0' : '#f5a8c0';
+            ctx.fillStyle = pink;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(180,60,100,0.3)';
+            ctx.lineWidth = 0.3;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffe066';
+        ctx.fill();
+        break;
+
+      case 2: // Yellow pond lily
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + t * 0.0002;
+          ctx.save();
+          ctx.rotate(a);
+          ctx.beginPath();
+          ctx.ellipse(5, 0, 4.5, 2.2, 0, 0, Math.PI * 2);
+          ctx.fillStyle = i % 2 === 0 ? '#ffdd44' : '#ffcc22';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(200,160,0,0.3)';
+          ctx.lineWidth = 0.4;
+          ctx.stroke();
+          ctx.restore();
+        }
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + 0.4;
+          ctx.save();
+          ctx.rotate(a);
+          ctx.beginPath();
+          ctx.ellipse(2.5, 0, 2.5, 1.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffee66';
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#ee8800';
+        ctx.fill();
+        // Pollen dots
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * 1.2, Math.sin(a) * 1.2, 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#cc6600';
+          ctx.fill();
+        }
+        break;
+
+      case 3: // Purple water hyacinth
+        // Stem cluster
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2 + t * 0.00025;
+          const dist = 3 + (i % 2) * 2;
+          ctx.save();
+          ctx.rotate(a);
+          ctx.translate(dist, 0);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 2.5, 1.8, a * 0.5, 0, Math.PI * 2);
+          const purple = i % 3 === 0 ? '#9966cc' : i % 3 === 1 ? '#aa77dd' : '#bb88ee';
+          ctx.fillStyle = purple;
+          ctx.fill();
+          // Petal detail line
+          ctx.strokeStyle = 'rgba(100,50,150,0.3)';
+          ctx.lineWidth = 0.3;
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffee88';
+        ctx.fill();
+        break;
+
+      case 4: // Blue water forget-me-not cluster
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2;
+          const bx = Math.cos(a) * 4;
+          const by = Math.sin(a) * 4;
+          // Each small flower
+          for (let p = 0; p < 5; p++) {
+            const pa = (p / 5) * Math.PI * 2 + t * 0.0003;
+            ctx.beginPath();
+            ctx.ellipse(
+              bx + Math.cos(pa) * 2,
+              by + Math.sin(pa) * 2,
+              1.8, 1.2, pa, 0, Math.PI * 2
+            );
+            ctx.fillStyle = p % 2 === 0 ? '#6699dd' : '#5588cc';
+            ctx.fill();
+          }
+          ctx.beginPath();
+          ctx.arc(bx, by, 1, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffee66';
+          ctx.fill();
+        }
+        // Central flower
+        for (let p = 0; p < 5; p++) {
+          const pa = (p / 5) * Math.PI * 2 + 0.3;
+          ctx.beginPath();
+          ctx.ellipse(Math.cos(pa) * 2.5, Math.sin(pa) * 2.5, 2, 1.3, pa, 0, Math.PI * 2);
+          ctx.fillStyle = '#7788ee';
+          ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffdd44';
+        ctx.fill();
+        break;
+    }
+
+    ctx.restore();
+  },
+
   drawLilypad(ctx, pad, time) {
     ctx.save();
     time = time || 0;
@@ -89,12 +308,15 @@ const Renderer = {
     // Calculate water bob — lilypad gently moves with the water
     const worldX = pad.x + (pad.offsetX || 0);
     const bob = this._getWaterBob(worldX, time);
-    const tilt = Math.sin(worldX * 0.015 + time * 0.0018) * 0.04; // slight rotational tilt
+    const tilt = Math.sin(worldX * 0.015 + time * 0.0018) * 0.04;
 
     const cx = pad.x + (pad.offsetX || 0);
     const cy = pad.y + (pad.offsetY || 0) + bob;
     const rx = (pad.width || 60) / 2;
     const ry = 10;
+    const v = pad.variant || 0;
+    const colors = this._padVariants[v % 10];
+    const shape = this._padShapes[v % 10];
 
     ctx.translate(cx, cy);
     ctx.rotate(tilt);
@@ -105,96 +327,82 @@ const Renderer = {
     ctx.fillStyle = 'rgba(5,20,40,0.25)';
     ctx.fill();
 
-    // Main lilypad shape with notch
+    // Main lilypad shape with variant notch size
     ctx.beginPath();
-    ctx.ellipse(0, 0, rx, ry, 0, 0.3, Math.PI * 2 - 0.3);
+    ctx.ellipse(0, 0, rx, ry, 0, shape.notchStart, Math.PI * 2 - shape.notchEnd);
     ctx.lineTo(0, 0);
     ctx.closePath();
 
-    // Gradient fill for depth
+    // Gradient fill using variant colors
     const padGrad = ctx.createRadialGradient(-rx * 0.2, -ry * 0.2, rx * 0.1, 0, 0, rx);
-    padGrad.addColorStop(0, '#3aad5e');
-    padGrad.addColorStop(0.5, '#2d8a4e');
-    padGrad.addColorStop(1, '#1e6b38');
+    padGrad.addColorStop(0, colors.inner);
+    padGrad.addColorStop(0.5, colors.mid);
+    padGrad.addColorStop(1, colors.outer);
     ctx.fillStyle = padGrad;
     ctx.fill();
 
-    // Outer edge
-    ctx.strokeStyle = '#175a2e';
+    // Edge
+    ctx.strokeStyle = colors.edge;
     ctx.lineWidth = 1.8;
     ctx.stroke();
 
-    // Inner lighter ring
+    // Inner ring
     ctx.beginPath();
-    ctx.ellipse(0, 0, rx * 0.75, ry * 0.7, 0, 0.4, Math.PI * 2 - 0.4);
-    ctx.strokeStyle = 'rgba(80,180,100,0.25)';
-    ctx.lineWidth = 1;
+    ctx.ellipse(0, 0, rx * 0.75, ry * 0.7, 0, shape.notchStart + 0.1, Math.PI * 2 - shape.notchEnd - 0.1);
+    ctx.strokeStyle = 'rgba(80,180,100,0.2)';
+    ctx.lineWidth = 0.8;
     ctx.stroke();
 
-    // Vein lines radiating from center
-    ctx.strokeStyle = 'rgba(30,107,56,0.4)';
+    // Vein lines from variant shape
+    ctx.strokeStyle = colors.vein;
     ctx.lineWidth = 0.7;
-    const veins = [
-      [-0.65, -0.55], [-0.55, 0.6], [0.7, -0.35], [0.7, 0.45],
-      [-0.3, -0.75], [0.35, -0.7], [-0.8, 0.1], [0.85, 0.1]
-    ];
-    for (const v of veins) {
+    for (const vn of shape.veins) {
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      const vx = v[0] * rx;
-      const vy = v[1] * ry;
+      const vx = vn[0] * rx;
+      const vy = vn[1] * ry;
       ctx.quadraticCurveTo(vx * 0.5 + vy * 0.1, vy * 0.5 - vx * 0.05, vx, vy);
       ctx.stroke();
     }
 
-    // Subtle highlight (light reflection)
+    // Highlight
     ctx.beginPath();
     ctx.ellipse(-rx * 0.25, -ry * 0.3, rx * 0.3, ry * 0.25, -0.3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(140,220,150,0.15)';
+    ctx.fillStyle = colors.highlight;
     ctx.fill();
 
-    // Water droplets on surface (2-3 tiny highlights)
-    for (let d = 0; d < 3; d++) {
+    // Spots/water droplets (count from variant)
+    for (let d = 0; d < shape.spots; d++) {
       const dx = Math.sin(worldX + d * 47) * rx * 0.5;
       const dy = Math.cos(worldX + d * 31) * ry * 0.4;
-      if (dx * dx / (rx * rx) + dy * dy / (ry * ry) < 0.6) {
+      if (dx * dx / (rx * rx) + dy * dy / (ry * ry) < 0.55) {
         ctx.beginPath();
-        ctx.arc(dx, dy, 1.2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(180,230,255,0.3)';
+        ctx.arc(dx, dy, 1.2 + (d % 2) * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(180,230,255,0.25)';
         ctx.fill();
       }
     }
 
-    // Flower
+    // Worn/aged marks on some variants
+    if (v >= 4 && v <= 7) {
+      const markAngle = v * 0.7 + 1;
+      ctx.beginPath();
+      ctx.ellipse(
+        Math.cos(markAngle) * rx * 0.4,
+        Math.sin(markAngle) * ry * 0.3,
+        rx * 0.12, ry * 0.1, markAngle, 0, Math.PI * 2
+      );
+      ctx.fillStyle = 'rgba(80,60,30,0.08)';
+      ctx.fill();
+    }
+
+    // Flower (5 types)
     if (pad.hasFlower) {
-      const fx = rx * 0.3;
-      const fy = -ry * 0.6;
-      // Petals
-      for (let i = 0; i < 5; i++) {
-        const angle = (i / 5) * Math.PI * 2 + time * 0.0003;
-        ctx.beginPath();
-        ctx.ellipse(
-          fx + Math.cos(angle) * 4.5,
-          fy + Math.sin(angle) * 4.5,
-          3.5, 2.5,
-          angle, 0, Math.PI * 2
-        );
-        ctx.fillStyle = i % 2 === 0 ? '#ff88aa' : '#ff6699';
-        ctx.fill();
-      }
-      // Center
-      ctx.beginPath();
-      ctx.arc(fx, fy, 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffdd44';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(fx - 0.5, fy - 0.5, 1, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,200,0.5)';
-      ctx.fill();
+      this._drawFlower(ctx, rx * 0.3, -ry * 0.6, pad.flowerType || 0, time);
     }
 
-    // Water ripple rings around the pad
-    ctx.rotate(-tilt); // undo tilt for ripples
+    // Water ripple rings
+    ctx.rotate(-tilt);
     const rippleAlpha = 0.08 + Math.sin(time * 0.002 + worldX) * 0.04;
     ctx.strokeStyle = 'rgba(100,180,220,' + rippleAlpha + ')';
     ctx.lineWidth = 0.6;

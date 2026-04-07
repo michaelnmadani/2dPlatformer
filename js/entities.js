@@ -112,6 +112,8 @@ function createLilypad(config) {
     opacity: 1,
     disappearing: false,
     hasFlower: Math.random() > 0.7,
+    flowerType: Math.floor(Math.random() * 5),
+    variant: Math.floor(Math.random() * 10),
 
     update: function (time) {
       // Water bob — gentle up/down matching the water surface
