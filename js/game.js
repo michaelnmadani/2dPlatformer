@@ -18,6 +18,7 @@ const Game = {
     prince: null,
     lilypads: [],
     dragonflies: [],
+    fish: [],
     particles: [],
     cameraX: 0,
     levelWidth: 0,
@@ -275,9 +276,20 @@ const Game = {
         this.lilypads = (config.lilypads || []).map((padCfg) => createLilypad(padCfg));
         this.dragonflies = (config.dragonflies || []).map((df) => createDragonfly(df.x, df.y, df.patrolRange));
 
+        // Spawn fish across the level
+        this.fish = [];
+        const lw = config.levelWidth || 800;
+        const fishCount = Math.floor(lw / 150) + 5;
+        for (let i = 0; i < fishCount; i++) {
+            this.fish.push(createFish(
+                Math.random() * lw,
+                420 + Math.random() * 60
+            ));
+        }
+
         this.particles = [];
         this.cameraX = 0;
-        this.levelWidth = config.levelWidth || 800;
+        this.levelWidth = lw;
 
         // Wind
         this.windActive = false;
@@ -339,12 +351,15 @@ const Game = {
         const wasOnGround = frog.onGround;
         Physics.applyGravity(frog);
 
-        // Update lilypads and dragonflies
+        // Update lilypads, dragonflies, and fish
         for (const pad of this.lilypads) {
             pad.update(this.time);
         }
         for (const df of this.dragonflies) {
             df.update();
+        }
+        for (const f of this.fish) {
+            f.update(this.time, this.levelWidth);
         }
 
         // Platform collision
@@ -568,6 +583,11 @@ const Game = {
 
         ctx.save();
         ctx.translate(-this.cameraX, 0);
+
+        // Fish (below lilypads)
+        for (const f of this.fish) {
+            Renderer.drawFish(ctx, f, this.time);
+        }
 
         // Lilypads
         for (const pad of this.lilypads) {

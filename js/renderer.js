@@ -415,6 +415,135 @@ const Renderer = {
     ctx.restore();
   },
 
+  drawFish(ctx, fish, time) {
+    ctx.save();
+    time = time || 0;
+
+    ctx.translate(fish.x, fish.y);
+    // Flip based on direction
+    if (fish.direction < 0) {
+      ctx.scale(-1, 1);
+    }
+
+    // Underwater transparency — deeper fish are more transparent
+    const depth = (fish.y - 420) / 60; // 0 at top, 1 at bottom
+    ctx.globalAlpha = 0.45 - depth * 0.15;
+
+    const bl = fish.bodyLen;
+    const bh = fish.bodyH;
+    const tw = fish.tailW;
+    const th = fish.tailH;
+
+    // Tail (wagging)
+    ctx.save();
+    ctx.translate(-bl * 0.4, 0);
+    ctx.rotate(fish.tailAngle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-tw, -th * 0.5);
+    ctx.quadraticCurveTo(-tw * 0.6, 0, -tw, th * 0.5);
+    ctx.closePath();
+    ctx.fillStyle = fish.finColor;
+    ctx.fill();
+    // Tail fin lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-1, 0);
+    ctx.lineTo(-tw * 0.8, -th * 0.35);
+    ctx.moveTo(-1, 0);
+    ctx.lineTo(-tw * 0.8, th * 0.35);
+    ctx.moveTo(-1, 0);
+    ctx.lineTo(-tw * 0.9, 0);
+    ctx.stroke();
+    ctx.restore();
+
+    // Body
+    ctx.beginPath();
+    ctx.ellipse(0, 0, bl * 0.5, bh * 0.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = fish.bodyColor;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Belly (lighter underside)
+    ctx.beginPath();
+    ctx.ellipse(bl * 0.05, bh * 0.15, bl * 0.35, bh * 0.25, 0, 0, Math.PI);
+    ctx.fillStyle = fish.bellyColor;
+    ctx.fill();
+
+    // Scales pattern (subtle)
+    if (fish.sizeIndex >= 2) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+      ctx.lineWidth = 0.3;
+      for (let s = 0; s < 3; s++) {
+        const sx = -bl * 0.15 + s * bl * 0.15;
+        ctx.beginPath();
+        ctx.arc(sx, -bh * 0.05, bh * 0.25, 0.5, 2.6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(sx, bh * 0.1, bh * 0.25, -2.6, -0.5);
+        ctx.stroke();
+      }
+    }
+
+    // Dorsal fin (top)
+    ctx.beginPath();
+    ctx.moveTo(-bl * 0.1, -bh * 0.45);
+    ctx.quadraticCurveTo(bl * 0.05, -bh * 0.9, bl * 0.2, -bh * 0.4);
+    ctx.fillStyle = fish.finColor;
+    ctx.fill();
+
+    // Pectoral fin (side)
+    ctx.save();
+    ctx.translate(bl * 0.05, bh * 0.15);
+    const finWag = Math.sin(time * 0.008 + fish.swimPhase) * 0.3;
+    ctx.rotate(finWag);
+    ctx.beginPath();
+    ctx.ellipse(0, bh * 0.2, bl * 0.15, bh * 0.18, 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = fish.finColor;
+    ctx.globalAlpha = (ctx.globalAlpha || 0.4) * 0.7;
+    ctx.fill();
+    ctx.restore();
+
+    // Restore alpha for eye
+    ctx.globalAlpha = 0.45 - depth * 0.15;
+
+    // Eye
+    const eyeR = Math.max(1, bh * 0.15);
+    const eyeX = bl * 0.3;
+    const eyeY = -bh * 0.12;
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, eyeR, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(eyeX + eyeR * 0.3, eyeY, eyeR * 0.55, 0, Math.PI * 2);
+    ctx.fillStyle = fish.eyeColor;
+    ctx.fill();
+    // Eye highlight
+    ctx.beginPath();
+    ctx.arc(eyeX + eyeR * 0.1, eyeY - eyeR * 0.2, eyeR * 0.25, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fill();
+
+    // Mouth
+    ctx.beginPath();
+    ctx.arc(bl * 0.48, bh * 0.05, bh * 0.12, 0, Math.PI);
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Subtle water shimmer on top of fish
+    ctx.beginPath();
+    ctx.ellipse(-bl * 0.1, -bh * 0.3, bl * 0.2, bh * 0.08, -0.2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(150,200,255,0.1)';
+    ctx.fill();
+
+    ctx.restore();
+  },
+
   drawFrog(ctx, frog, time) {
     ctx.save();
     ctx.translate(frog.x, frog.y);

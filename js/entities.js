@@ -255,3 +255,71 @@ function createParticle(x, y, type) {
 
   return particle;
 }
+
+function createFish(x, y) {
+  // 5 sizes: tiny, small, medium, large, big
+  var sizeIndex = Math.floor(Math.random() * 5);
+  var sizes = [
+    { name: 'tiny',   bodyLen: 8,  bodyH: 3,  tailW: 4,  tailH: 3,  speed: 0.8 },
+    { name: 'small',  bodyLen: 12, bodyH: 5,  tailW: 6,  tailH: 4,  speed: 0.6 },
+    { name: 'medium', bodyLen: 18, bodyH: 7,  tailW: 8,  tailH: 6,  speed: 0.45 },
+    { name: 'large',  bodyLen: 24, bodyH: 9,  tailW: 10, tailH: 8,  speed: 0.35 },
+    { name: 'big',    bodyLen: 32, bodyH: 12, tailW: 14, tailH: 10, speed: 0.25 }
+  ];
+  var s = sizes[sizeIndex];
+
+  // 5 colours
+  var colorIndex = Math.floor(Math.random() * 5);
+  var colors = [
+    { body: '#e88840', belly: '#ffcc88', fin: '#d06020', eye: '#221100' },  // Orange/goldfish
+    { body: '#5588cc', belly: '#aaccee', fin: '#3366aa', eye: '#112244' },  // Blue
+    { body: '#cc4455', belly: '#ee9999', fin: '#aa2233', eye: '#220011' },  // Red
+    { body: '#88bb44', belly: '#ccee88', fin: '#668822', eye: '#223300' },  // Green
+    { body: '#cc88dd', belly: '#eeccff', fin: '#aa66bb', eye: '#331144' }   // Purple
+  ];
+  var c = colors[colorIndex];
+
+  var direction = Math.random() > 0.5 ? 1 : -1;
+  var baseSpeed = s.speed * (0.7 + Math.random() * 0.6);
+  var swimPhase = Math.random() * Math.PI * 2;
+  var depthWobble = Math.random() * Math.PI * 2;
+
+  return {
+    x: x,
+    y: y,
+    baseY: y,
+    direction: direction,
+    speed: baseSpeed,
+    sizeIndex: sizeIndex,
+    colorIndex: colorIndex,
+    bodyLen: s.bodyLen,
+    bodyH: s.bodyH,
+    tailW: s.tailW,
+    tailH: s.tailH,
+    bodyColor: c.body,
+    bellyColor: c.belly,
+    finColor: c.fin,
+    eyeColor: c.eye,
+    swimPhase: swimPhase,
+    depthWobble: depthWobble,
+    tailAngle: 0,
+
+    update: function (time, levelWidth) {
+      // Swim forward
+      this.x += this.speed * this.direction;
+
+      // Wrap around level bounds with margin
+      if (this.direction > 0 && this.x > levelWidth + 50) {
+        this.x = -50;
+      } else if (this.direction < 0 && this.x < -50) {
+        this.x = levelWidth + 50;
+      }
+
+      // Gentle vertical bobbing
+      this.y = this.baseY + Math.sin(time * 0.001 + this.depthWobble) * 6;
+
+      // Tail wag
+      this.tailAngle = Math.sin(time * 0.006 + this.swimPhase) * 0.4;
+    }
+  };
+}
