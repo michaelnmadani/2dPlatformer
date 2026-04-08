@@ -290,6 +290,7 @@ const Game = {
         this.particles = [];
         this.cameraX = 0;
         this.levelWidth = lw;
+        this.sceneId = config.scene || 0;
 
         // Wind
         this.windActive = false;
@@ -579,7 +580,7 @@ const Game = {
 
     _renderPlayingScene(ctx, canvas) {
         // Water background
-        Renderer.drawWater(ctx, canvas, this.time, this.cameraX);
+        Renderer.drawWater(ctx, canvas, this.time, this.cameraX, this.sceneId);
 
         ctx.save();
         ctx.translate(-this.cameraX, 0);

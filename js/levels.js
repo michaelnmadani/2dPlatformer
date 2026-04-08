@@ -46,7 +46,8 @@ const Levels = {
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 3100
+                levelWidth: 3100,
+                scene: 0
             },
 
             // Level 2 — Varied Gaps ~4200 wide
@@ -81,7 +82,8 @@ const Levels = {
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 3600
+                levelWidth: 3600,
+                scene: 1
             },
 
             // Level 3 — Moving Pads ~4800 wide
@@ -118,7 +120,8 @@ const Levels = {
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4100
+                levelWidth: 4100,
+                scene: 2
             },
 
             // Level 4 — Sinking Pads ~4800 wide
@@ -154,7 +157,8 @@ const Levels = {
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4000
+                levelWidth: 4000,
+                scene: 3
             },
 
             // Level 5 — Dragonflies! ~5400 wide
@@ -201,7 +205,8 @@ const Levels = {
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4500
+                levelWidth: 4500,
+                scene: 4
             },
 
             // Level 6 — Wind ~5400 wide
@@ -239,7 +244,8 @@ const Levels = {
                 wind: { force: 2, interval: 180, duration: 120 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4300
+                levelWidth: 4300,
+                scene: 5
             },
 
             // Level 7 — Moving + Sinking Combo ~6000 wide
@@ -285,7 +291,8 @@ const Levels = {
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 4700
+                levelWidth: 4700,
+                scene: 6
             },
 
             // Level 8 — Fast Moving ~6600 wide
@@ -333,7 +340,8 @@ const Levels = {
                 wind: { force: 1.5, interval: 240, duration: 90 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 5300
+                levelWidth: 5300,
+                scene: 7
             },
 
             // Level 9 — Disappearing Pads ~7200 wide
@@ -385,7 +393,8 @@ const Levels = {
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 5400
+                levelWidth: 5400,
+                scene: 8
             },
 
             // Level 10 — Everything Combined (Boss Level) ~8400 wide
@@ -445,7 +454,8 @@ const Levels = {
                 wind: { force: 2.5, interval: 150, duration: 100 },
                 startX: 105,
                 startY: 370,
-                levelWidth: 6900
+                levelWidth: 6900,
+                scene: 9
             }
         };
 

@@ -6,227 +6,603 @@ const Renderer = {
          + Math.sin(worldX * 0.013 + time * 0.0015) * 2;
   },
 
-  drawWater(ctx, canvas, time, cameraX) {
+
+  drawWater(ctx, canvas, time, cameraX, sceneId) {
     ctx.save();
     cameraX = cameraX || 0;
+    sceneId = (sceneId !== undefined) ? sceneId : 0;
 
     const W = canvas.width;
     const H = canvas.height;
     const waterTop = H * 0.62;
 
-    // --- 1. Richer sky with moon/stars reflection ---
+    // --- Scene configurations ---
+    const scenes = [
+      {sky:[[0,'#060e1f'],[.15,'#0b1a32'],[.35,'#102545'],[.55,'#152d4f'],[.78,'#1a3858'],[1,'#1e4462']],water:[[0,'#1a4a6c'],[.25,'#153d5c'],[.5,'#0f3048'],[.75,'#0a2438'],[1,'#051520']],wr:30,wg:80,wb:150,am:1,cr:100,cg:180,cb:220},
+      {sky:[[0,'#4a90d9'],[.2,'#5da0e0'],[.45,'#87CEEB'],[.7,'#a8dcf0'],[.9,'#c8e8f8'],[1,'#ddf0fc']],water:[[0,'#2878a8'],[.25,'#206898'],[.5,'#185880'],[.75,'#124868'],[1,'#0c3850']],wr:40,wg:110,wb:180,am:1,cr:120,cg:200,cb:240},
+      {sky:[[0,'#1a2e1a'],[.2,'#1e3820'],[.4,'#224428'],[.6,'#2a5530'],[.8,'#305838'],[1,'#3a6840']],water:[[0,'#1a4838'],[.25,'#143a30'],[.5,'#0e2e28'],[.75,'#0a2420'],[1,'#061a18']],wr:20,wg:70,wb:60,am:.8,cr:80,cg:160,cb:120},
+      {sky:[[0,'#1a1040'],[.15,'#2e1850'],[.3,'#6a2060'],[.5,'#c04830'],[.7,'#e88020'],[.85,'#f0a828'],[1,'#f8c848']],water:[[0,'#8a5020'],[.25,'#6a3818'],[.5,'#502a14'],[.75,'#3a1e10'],[1,'#28140a']],wr:120,wg:70,wb:30,am:1,cr:200,cg:150,cb:80},
+      {sky:[[0,'#1a1e20'],[.2,'#222828'],[.4,'#2a3030'],[.6,'#323a38'],[.8,'#3a4240'],[1,'#424a48']],water:[[0,'#2a3a38'],[.25,'#223230'],[.5,'#1a2a28'],[.75,'#122220'],[1,'#0a1a18']],wr:30,wg:50,wb:48,am:1.5,cr:60,cg:90,cb:85},
+      {sky:[[0,'#4a3868'],[.2,'#6a4878'],[.4,'#9a6888'],[.6,'#c88898'],[.8,'#e0a890'],[1,'#f0c888']],water:[[0,'#5a6888'],[.25,'#4a5878'],[.5,'#3a4868'],[.75,'#2a3858'],[1,'#1a2848']],wr:70,wg:80,wb:120,am:.7,cr:140,cg:150,cb:180},
+      {sky:[[0,'#050a15'],[.2,'#060e1a'],[.4,'#081220'],[.6,'#0a1525'],[.8,'#0c182a'],[1,'#0e1b30']],water:[[0,'#0c2838'],[.25,'#0a2230'],[.5,'#081c28'],[.75,'#061620'],[1,'#041018']],wr:15,wg:60,wb:70,am:1,cr:40,cg:140,cb:100},
+      {sky:[[0,'#7868a0'],[.2,'#9878b0'],[.4,'#b088b8'],[.6,'#c898c0'],[.8,'#daa8c8'],[1,'#e8b8d0']],water:[[0,'#5868a0'],[.25,'#485890'],[.5,'#384880'],[.75,'#283870'],[1,'#182860']],wr:70,wg:60,wb:120,am:.9,cr:180,cg:140,cb:200},
+      {sky:[[0,'#1878c0'],[.2,'#2090d0'],[.4,'#30a8e0'],[.6,'#48c0e8'],[.8,'#68d0f0'],[1,'#88e0f8']],water:[[0,'#1898a8'],[.25,'#148898'],[.5,'#107888'],[.75,'#0c6878'],[1,'#085868']],wr:20,wg:130,wb:150,am:1,cr:80,cg:220,cb:240},
+      {sky:[[0,'#0a0418'],[.15,'#120828'],[.3,'#1a0c38'],[.5,'#180a30'],[.7,'#100820'],[.85,'#0c0618'],[1,'#140a28']],water:[[0,'#1a1848'],[.25,'#141440'],[.5,'#101038'],[.75,'#0c0c30'],[1,'#080828']],wr:30,wg:20,wb:80,am:1,cr:100,cg:80,cb:200}
+    ];
+    const sc = scenes[sceneId] || scenes[0];
+
+    // --- Draw sky gradient ---
     const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
-    skyGrad.addColorStop(0, '#060e1f');
-    skyGrad.addColorStop(0.15, '#0b1a32');
-    skyGrad.addColorStop(0.35, '#102545');
-    skyGrad.addColorStop(0.55, '#152d4f');
-    skyGrad.addColorStop(0.78, '#1a3858');
-    skyGrad.addColorStop(1, '#1e4462');
+    for (const s of sc.sky) skyGrad.addColorStop(s[0], s[1]);
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H * 0.65);
 
-    // Moon glow (radial gradient, top-right)
-    const moonX = W * 0.78;
-    const moonY = H * 0.12;
-    const moonGlow = ctx.createRadialGradient(moonX, moonY, 2, moonX, moonY, 80);
-    moonGlow.addColorStop(0, 'rgba(220,235,255,0.35)');
-    moonGlow.addColorStop(0.15, 'rgba(180,210,240,0.18)');
-    moonGlow.addColorStop(0.5, 'rgba(120,160,200,0.06)');
-    moonGlow.addColorStop(1, 'rgba(60,100,160,0)');
-    ctx.fillStyle = moonGlow;
-    ctx.fillRect(moonX - 80, moonY - 80, 160, 160);
-    // Moon disc
-    ctx.beginPath();
-    ctx.arc(moonX, moonY, 6, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(230,240,255,0.6)';
-    ctx.fill();
+    // ===== SCENE-SPECIFIC SKY EFFECTS =====
 
-    // Faint stars
-    const stars = [[W * 0.15, H * 0.08, 1.2], [W * 0.52, H * 0.05, 0.9], [W * 0.9, H * 0.18, 1.0]];
-    for (const s of stars) {
-      const flicker = 0.4 + Math.sin(time * 0.002 + s[0]) * 0.15;
-      ctx.beginPath();
-      ctx.arc(s[0], s[1], s[2], 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(200,220,255,' + flicker + ')';
-      ctx.fill();
+    if (sceneId === 0) {
+      // --- Moonlit Night: moon, stars, fireflies ---
+      const moonX = W * 0.78, moonY = H * 0.12;
+      const moonGlow = ctx.createRadialGradient(moonX, moonY, 2, moonX, moonY, 80);
+      moonGlow.addColorStop(0, 'rgba(220,235,255,0.35)');
+      moonGlow.addColorStop(0.15, 'rgba(180,210,240,0.18)');
+      moonGlow.addColorStop(0.5, 'rgba(120,160,200,0.06)');
+      moonGlow.addColorStop(1, 'rgba(60,100,160,0)');
+      ctx.fillStyle = moonGlow;
+      ctx.fillRect(moonX - 80, moonY - 80, 160, 160);
+      ctx.beginPath(); ctx.arc(moonX, moonY, 6, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(230,240,255,0.7)'; ctx.fill();
+      // Stars
+      const stars0 = [[W*.12,H*.06,1.2],[W*.28,H*.04,0.8],[W*.48,H*.09,1.0],[W*.62,H*.03,0.9],[W*.88,H*.15,1.1],[W*.95,H*.07,0.7]];
+      for (const s of stars0) {
+        const fl = 0.35 + Math.sin(time * 0.002 + s[0] * 0.1) * 0.2;
+        ctx.beginPath(); ctx.arc(s[0], s[1], s[2], 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,220,255,' + fl + ')'; ctx.fill();
+      }
+      // Fireflies
+      for (let i = 0; i < 7; i++) {
+        const fx = (W * (0.1 + i * 0.12) + Math.sin(time * 0.0008 + i * 2.5) * 40 + Math.cos(time * 0.0012 + i * 1.7) * 25) % W;
+        const fy = waterTop - 40 - Math.sin(time * 0.001 + i * 3.1) * 30 - i * 8;
+        const fa = 0.3 + Math.sin(time * 0.004 + i * 1.9) * 0.25;
+        ctx.beginPath(); ctx.arc(fx, fy, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,230,80,' + fa + ')'; ctx.fill();
+        const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, 8);
+        glow.addColorStop(0, 'rgba(200,230,80,' + (fa * 0.3) + ')');
+        glow.addColorStop(1, 'rgba(200,230,80,0)');
+        ctx.fillStyle = glow; ctx.fillRect(fx - 8, fy - 8, 16, 16);
+      }
+
+    } else if (sceneId === 1) {
+      // --- Sunny Day: sun, rays, clouds ---
+      const sunX = W * 0.18, sunY = H * 0.1;
+      const sunGlow = ctx.createRadialGradient(sunX, sunY, 5, sunX, sunY, 100);
+      sunGlow.addColorStop(0, 'rgba(255,250,220,0.6)');
+      sunGlow.addColorStop(0.2, 'rgba(255,240,180,0.3)');
+      sunGlow.addColorStop(0.5, 'rgba(255,220,120,0.1)');
+      sunGlow.addColorStop(1, 'rgba(255,200,80,0)');
+      ctx.fillStyle = sunGlow;
+      ctx.fillRect(sunX - 100, sunY - 100, 200, 200);
+      ctx.beginPath(); ctx.arc(sunX, sunY, 12, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,250,230,0.9)'; ctx.fill();
+      // Sun rays
+      ctx.globalAlpha = 0.06;
+      for (let r = 0; r < 4; r++) {
+        const angle = r * 0.8 + 0.3 + Math.sin(time * 0.0005 + r) * 0.1;
+        ctx.save(); ctx.translate(sunX, sunY); ctx.rotate(angle);
+        ctx.fillStyle = '#fff8e0';
+        ctx.fillRect(0, -1.5, 200, 3);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      // Clouds drifting right-to-left
+      for (let c = 0; c < 5; c++) {
+        const cx = ((W * 1.3) - ((time * (0.008 + c * 0.003) + c * 200) % (W * 1.6))) + W * 0.15;
+        const cy = H * (0.12 + c * 0.07);
+        const cw = 50 + c * 15;
+        const ch = 14 + c * 3;
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.6 - c * 0.08) + ')';
+        ctx.beginPath(); ctx.ellipse(cx, cy, cw, ch, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx - cw * 0.35, cy + ch * 0.3, cw * 0.6, ch * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx + cw * 0.3, cy + ch * 0.2, cw * 0.5, ch * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+      }
+
+    } else if (sceneId === 2) {
+      // --- Forest: trees, falling leaves, wind streaks ---
+      // Mist overlay
+      const mistGrad = ctx.createLinearGradient(0, H * 0.3, 0, H * 0.65);
+      mistGrad.addColorStop(0, 'rgba(180,210,180,0)');
+      mistGrad.addColorStop(0.6, 'rgba(180,210,180,0.08)');
+      mistGrad.addColorStop(1, 'rgba(180,210,180,0.15)');
+      ctx.fillStyle = mistGrad; ctx.fillRect(0, H * 0.3, W, H * 0.35);
+      // Tree silhouettes (parallaxed)
+      const trees = [[0.05,0.55],[0.18,0.42],[0.35,0.50],[0.55,0.38],[0.72,0.48],[0.88,0.44],[0.98,0.52]];
+      for (let t = 0; t < trees.length; t++) {
+        const tx = trees[t][0] * W - (cameraX * 0.05) % W;
+        const th = H * trees[t][1];
+        const tw = 18 + t * 3;
+        const treeBot = waterTop - 5;
+        // Trunk
+        ctx.fillStyle = '#1a2a18';
+        ctx.fillRect(tx - 3, treeBot - th * 0.4, 6, th * 0.4);
+        // Canopy (layered triangles)
+        ctx.fillStyle = 'rgba(20,50,20,0.85)';
+        ctx.beginPath();
+        ctx.moveTo(tx, treeBot - th); ctx.lineTo(tx - tw, treeBot - th * 0.3);
+        ctx.lineTo(tx + tw, treeBot - th * 0.3); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(25,60,25,0.8)';
+        ctx.beginPath();
+        ctx.moveTo(tx, treeBot - th * 0.75); ctx.lineTo(tx - tw * 1.2, treeBot - th * 0.1);
+        ctx.lineTo(tx + tw * 1.2, treeBot - th * 0.1); ctx.closePath(); ctx.fill();
+      }
+      // Falling leaves
+      for (let l = 0; l < 10; l++) {
+        const period = 5000 + l * 800;
+        const phase = ((time + l * 700) % period) / period;
+        const lx = (W * (0.05 + l * 0.09) + Math.sin(time * 0.001 + l * 2.3) * 30) % W;
+        const ly = -10 + phase * (H + 20);
+        if (ly < waterTop) {
+          const rot = time * 0.003 + l * 1.5;
+          const sz = 3 + (l % 3);
+          ctx.save(); ctx.translate(lx, ly); ctx.rotate(rot);
+          ctx.fillStyle = 'rgba(80,140,40,' + (0.5 + Math.sin(l) * 0.2) + ')';
+          ctx.beginPath(); ctx.ellipse(0, 0, sz, sz * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+      }
+      // Wind streaks
+      ctx.globalAlpha = 0.04;
+      for (let w = 0; w < 5; w++) {
+        const wy = H * (0.2 + w * 0.08);
+        const wx = ((time * 0.15 + w * 180) % (W + 100)) - 50;
+        ctx.strokeStyle = '#a0d0a0'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 60 + w * 10, wy + Math.sin(w) * 3); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+    } else if (sceneId === 3) {
+      // --- Golden Sunset: sun, cloud bands, birds ---
+      const sunX = W * 0.5, sunY = waterTop - 8;
+      // Sun disc (half below horizon)
+      const sunGlow = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 120);
+      sunGlow.addColorStop(0, 'rgba(255,200,80,0.5)');
+      sunGlow.addColorStop(0.3, 'rgba(255,150,50,0.2)');
+      sunGlow.addColorStop(0.6, 'rgba(255,100,30,0.08)');
+      sunGlow.addColorStop(1, 'rgba(200,60,20,0)');
+      ctx.fillStyle = sunGlow;
+      ctx.fillRect(sunX - 120, sunY - 120, 240, 120);
+      ctx.beginPath(); ctx.arc(sunX, sunY, 25, Math.PI, 0);
+      ctx.fillStyle = 'rgba(255,220,120,0.8)'; ctx.fill();
+      // Warm cloud bands
+      for (let b = 0; b < 4; b++) {
+        const by = waterTop - 60 - b * 30 + Math.sin(time * 0.0004 + b * 2) * 5;
+        const bw = W * (0.3 + b * 0.08);
+        const bx = W * (0.2 + b * 0.1) + Math.sin(time * 0.0003 + b) * 20;
+        ctx.fillStyle = 'rgba(200,' + (100 + b * 20) + ',' + (60 + b * 15) + ',0.15)';
+        ctx.beginPath(); ctx.ellipse(bx, by, bw, 6 + b * 2, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      // Bird silhouettes
+      for (let b = 0; b < 3; b++) {
+        const bx = ((time * (0.02 + b * 0.008) + b * 250) % (W + 100)) - 50;
+        const by = H * (0.15 + b * 0.1) + Math.sin(time * 0.002 + b * 3) * 8;
+        ctx.strokeStyle = 'rgba(40,20,10,0.4)'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(bx - 6, by + 3); ctx.quadraticCurveTo(bx - 2, by - 3, bx, by);
+        ctx.quadraticCurveTo(bx + 2, by - 3, bx + 6, by + 3); ctx.stroke();
+      }
+
+    } else if (sceneId === 4) {
+      // --- Storm: dark clouds, rain, lightning ---
+      // Rolling dark clouds
+      for (let c = 0; c < 4; c++) {
+        const cx = W * (0.15 + c * 0.22) + Math.sin(time * 0.0003 + c * 1.8) * 40;
+        const cy = H * (0.08 + c * 0.06) + Math.sin(time * 0.0005 + c * 2.3) * 10;
+        ctx.fillStyle = 'rgba(25,30,28,' + (0.5 - c * 0.08) + ')';
+        ctx.beginPath(); ctx.ellipse(cx, cy, 90 + c * 15, 25 + c * 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx + 40, cy + 10, 60 + c * 10, 20 + c * 3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      // Rain
+      ctx.strokeStyle = 'rgba(150,170,180,0.25)'; ctx.lineWidth = 1;
+      for (let r = 0; r < 40; r++) {
+        const rx = (r * 23.7 + time * 0.3) % W;
+        const ry = ((r * 41.3 + time * 0.8) % (waterTop + 20)) - 20;
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 12); ctx.stroke();
+      }
+      // Lightning flash (every ~180 frames, lasts 3 frames)
+      const lightningCycle = Math.floor(time * 0.06) % 180;
+      if (lightningCycle < 3) {
+        ctx.fillStyle = 'rgba(220,230,255,' + (0.15 - lightningCycle * 0.04) + ')';
+        ctx.fillRect(0, 0, W, waterTop);
+      }
+
+    } else if (sceneId === 5) {
+      // --- Misty Dawn: fog layers, morning star, mist particles ---
+      // Morning star
+      const msA = 0.5 + Math.sin(time * 0.003) * 0.15;
+      ctx.beginPath(); ctx.arc(W * 0.7, H * 0.06, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,240,200,' + msA + ')'; ctx.fill();
+      const msGlow = ctx.createRadialGradient(W * 0.7, H * 0.06, 0, W * 0.7, H * 0.06, 15);
+      msGlow.addColorStop(0, 'rgba(255,240,200,' + (msA * 0.3) + ')');
+      msGlow.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = msGlow; ctx.fillRect(W * 0.7 - 15, H * 0.06 - 15, 30, 30);
+      // Fog/mist layers
+      for (let f = 0; f < 4; f++) {
+        const fy = waterTop - 60 + f * 25 + Math.sin(time * 0.0003 + f * 2) * 8;
+        const foff = (time * (0.005 + f * 0.002) + f * 200) % (W * 2) - W * 0.5;
+        const fogGrad = ctx.createLinearGradient(foff - 100, 0, foff + W + 100, 0);
+        fogGrad.addColorStop(0, 'rgba(220,200,210,0)');
+        fogGrad.addColorStop(0.3, 'rgba(220,200,210,' + (0.08 + f * 0.02) + ')');
+        fogGrad.addColorStop(0.7, 'rgba(230,210,220,' + (0.06 + f * 0.015) + ')');
+        fogGrad.addColorStop(1, 'rgba(220,200,210,0)');
+        ctx.fillStyle = fogGrad;
+        ctx.fillRect(0, fy - 15, W, 30);
+      }
+      // Mist particles
+      for (let m = 0; m < 7; m++) {
+        const mx = ((time * (0.01 + m * 0.004) + m * 130) % (W + 60)) - 30;
+        const my = waterTop - 30 - m * 12 + Math.sin(time * 0.001 + m * 2.8) * 10;
+        ctx.beginPath(); ctx.arc(mx, my, 3 + m % 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(230,220,230,' + (0.06 + Math.sin(time * 0.002 + m) * 0.02) + ')'; ctx.fill();
+      }
+
+    } else if (sceneId === 6) {
+      // --- Aurora Borealis: aurora curtains, mountains, stars ---
+      // Stars behind aurora
+      const stars6 = [[W*.1,H*.05],[W*.25,H*.12],[W*.4,H*.03],[W*.55,H*.14],[W*.68,H*.06],[W*.82,H*.1],[W*.92,H*.04],[W*.15,H*.18]];
+      for (const s of stars6) {
+        const fl = 0.3 + Math.sin(time * 0.0015 + s[0] * 0.05) * 0.15;
+        ctx.beginPath(); ctx.arc(s[0], s[1], 1, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(200,220,255,' + fl + ')'; ctx.fill();
+      }
+      // Aurora curtains (2 bands)
+      for (let a = 0; a < 2; a++) {
+        const aColor = a === 0 ? [0, 255, 128] : [136, 68, 255];
+        const aAlpha = a === 0 ? 0.1 : 0.07;
+        const aBaseY = H * (0.1 + a * 0.12);
+        const aHeight = H * (0.2 + a * 0.05);
+        ctx.beginPath();
+        ctx.moveTo(0, aBaseY);
+        for (let x = 0; x <= W; x += 4) {
+          const wave = Math.sin(x * 0.008 + time * 0.0006 + a * 2) * 20
+                     + Math.sin(x * 0.015 + time * 0.001 + a * 4) * 12
+                     + Math.sin(x * 0.003 + time * 0.0003) * 8;
+          ctx.lineTo(x, aBaseY + wave);
+        }
+        for (let x = W; x >= 0; x -= 4) {
+          const wave = Math.sin(x * 0.008 + time * 0.0006 + a * 2) * 20
+                     + Math.sin(x * 0.015 + time * 0.001 + a * 4) * 12
+                     + Math.sin(x * 0.003 + time * 0.0003) * 8;
+          ctx.lineTo(x, aBaseY + aHeight + wave * 0.5);
+        }
+        ctx.closePath();
+        const aGrad = ctx.createLinearGradient(0, aBaseY - 20, 0, aBaseY + aHeight + 20);
+        aGrad.addColorStop(0, 'rgba(' + aColor[0] + ',' + aColor[1] + ',' + aColor[2] + ',0)');
+        aGrad.addColorStop(0.3, 'rgba(' + aColor[0] + ',' + aColor[1] + ',' + aColor[2] + ',' + aAlpha + ')');
+        aGrad.addColorStop(0.7, 'rgba(' + aColor[0] + ',' + aColor[1] + ',' + aColor[2] + ',' + (aAlpha * 0.6) + ')');
+        aGrad.addColorStop(1, 'rgba(' + aColor[0] + ',' + aColor[1] + ',' + aColor[2] + ',0)');
+        ctx.fillStyle = aGrad; ctx.fill();
+      }
+      // Mountain silhouettes
+      ctx.fillStyle = '#0a0f18';
+      ctx.beginPath(); ctx.moveTo(0, waterTop - 5);
+      ctx.lineTo(W * 0.1, waterTop - 50); ctx.lineTo(W * 0.22, waterTop - 35);
+      ctx.lineTo(W * 0.35, waterTop - 70); ctx.lineTo(W * 0.5, waterTop - 45);
+      ctx.lineTo(W * 0.6, waterTop - 60); ctx.lineTo(W * 0.75, waterTop - 40);
+      ctx.lineTo(W * 0.9, waterTop - 55); ctx.lineTo(W, waterTop - 30);
+      ctx.lineTo(W, waterTop - 5); ctx.closePath(); ctx.fill();
+
+    } else if (sceneId === 7) {
+      // --- Cherry Blossom: trees, falling petals ---
+      // Cherry tree silhouettes (2 trees on edges)
+      for (let t = 0; t < 2; t++) {
+        const tx = t === 0 ? W * 0.08 - cameraX * 0.03 : W * 0.92 - cameraX * 0.03;
+        const tBot = waterTop - 5;
+        // Trunk
+        ctx.strokeStyle = '#4a2828'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(tx, tBot);
+        ctx.quadraticCurveTo(tx + (t === 0 ? 8 : -8), tBot - 60, tx + (t === 0 ? 5 : -5), tBot - 100);
+        ctx.stroke();
+        // Branches
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(tx + (t === 0 ? 5 : -5), tBot - 70);
+        ctx.quadraticCurveTo(tx + (t === 0 ? 30 : -30), tBot - 90, tx + (t === 0 ? 45 : -45), tBot - 80); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(tx + (t === 0 ? 5 : -5), tBot - 90);
+        ctx.quadraticCurveTo(tx + (t === 0 ? -15 : 15), tBot - 110, tx + (t === 0 ? -25 : 25), tBot - 105); ctx.stroke();
+        // Canopy blossoms
+        const blobs = [[-5,-100,22],[20,-85,18],[-15,-95,16],[5,-110,20],[30,-75,15],[-20,-80,14]];
+        for (const b of blobs) {
+          const bx = tx + (t === 0 ? b[0] : -b[0]);
+          const by = tBot + b[1] + Math.sin(time * 0.001 + b[0]) * 2;
+          ctx.beginPath(); ctx.arc(bx, by, b[2], 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(180,100,130,0.25)'; ctx.fill();
+          ctx.beginPath(); ctx.arc(bx + 3, by - 2, b[2] * 0.7, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,120,140,0.2)'; ctx.fill();
+        }
+      }
+      // Falling petals
+      for (let p = 0; p < 18; p++) {
+        const period = 4000 + p * 500;
+        const phase = ((time + p * 350) % period) / period;
+        const px = (W * (0.02 + p * 0.055) + Math.sin(time * 0.0008 + p * 1.7) * 35 + Math.cos(time * 0.0005 + p * 2.3) * 20) % W;
+        const py = -10 + phase * (H + 20);
+        if (py < waterTop + 10) {
+          const rot = time * 0.002 + p * 1.2;
+          const pa = 0.5 + Math.sin(p * 0.8) * 0.2;
+          ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
+          ctx.fillStyle = 'rgba(230,150,170,' + pa + ')';
+          ctx.beginPath(); ctx.ellipse(0, 0, 3, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+      }
+
+    } else if (sceneId === 8) {
+      // --- Tropical: palms, seabirds, bright sun ---
+      // Bright sun glow from above
+      const tsGrad = ctx.createRadialGradient(W * 0.5, 0, 10, W * 0.5, 0, 200);
+      tsGrad.addColorStop(0, 'rgba(255,255,230,0.15)');
+      tsGrad.addColorStop(0.5, 'rgba(255,250,200,0.05)');
+      tsGrad.addColorStop(1, 'rgba(255,240,180,0)');
+      ctx.fillStyle = tsGrad; ctx.fillRect(0, 0, W, H * 0.5);
+      // Palm tree silhouettes (parallaxed)
+      const palms = [[0.06, 0.7],[0.22, 0.55],[0.78, 0.6],[0.94, 0.65]];
+      for (let p = 0; p < palms.length; p++) {
+        const px = palms[p][0] * W - (cameraX * 0.04);
+        const pBot = waterTop - 5;
+        const pHeight = H * palms[p][1];
+        const pTop = pBot - pHeight;
+        // Curved trunk
+        ctx.strokeStyle = '#1a4020'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(px, pBot);
+        const curve = (p % 2 === 0 ? 1 : -1) * 15;
+        ctx.quadraticCurveTo(px + curve, pBot - pHeight * 0.5, px + curve * 0.5, pTop);
+        ctx.stroke();
+        // Palm fronds (fan of lines)
+        const ftx = px + curve * 0.5, fty = pTop;
+        ctx.strokeStyle = '#1a4a20'; ctx.lineWidth = 2;
+        for (let f = 0; f < 7; f++) {
+          const fAngle = -Math.PI * 0.8 + f * (Math.PI * 0.6 / 6) + Math.sin(time * 0.001 + p + f * 0.5) * 0.05;
+          const fLen = 35 + f * 3 + Math.sin(f * 2) * 8;
+          const fex = ftx + Math.cos(fAngle) * fLen;
+          const fey = fty + Math.sin(fAngle) * fLen;
+          ctx.beginPath(); ctx.moveTo(ftx, fty);
+          ctx.quadraticCurveTo(ftx + Math.cos(fAngle) * fLen * 0.6, fty + Math.sin(fAngle) * fLen * 0.4, fex, fey);
+          ctx.stroke();
+        }
+      }
+      // Seabirds
+      for (let b = 0; b < 3; b++) {
+        const bx = ((time * (0.015 + b * 0.005) + b * 300) % (W + 80)) - 40;
+        const by = H * (0.08 + b * 0.06) + Math.sin(time * 0.003 + b * 2) * 5;
+        ctx.strokeStyle = 'rgba(20,60,40,0.35)'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(bx - 5, by + 2); ctx.quadraticCurveTo(bx - 1, by - 2, bx, by);
+        ctx.quadraticCurveTo(bx + 1, by - 2, bx + 5, by + 2); ctx.stroke();
+      }
+
+    } else if (sceneId === 9) {
+      // --- Cosmic Night: starfield, nebulae, shooting stars ---
+      // Dense starfield
+      for (let s = 0; s < 28; s++) {
+        const sx = (s * 29.3 + Math.sin(s * 7.1) * 50) % W;
+        const sy = (s * 17.7 + Math.cos(s * 4.3) * 30) % (waterTop - 10);
+        const sr = 0.5 + (s % 4) * 0.4;
+        const sa = 0.3 + Math.sin(time * 0.0015 + s * 1.3) * 0.2;
+        ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,210,255,' + sa + ')'; ctx.fill();
+      }
+      // Nebula clouds
+      const nebulae = [
+        [W * 0.25, H * 0.15, 80, [140, 60, 200, 0.06]],
+        [W * 0.65, H * 0.25, 100, [60, 80, 200, 0.05]],
+        [W * 0.45, H * 0.08, 60, [200, 60, 140, 0.04]]
+      ];
+      for (const n of nebulae) {
+        const nx = n[0] + Math.sin(time * 0.0002 + n[1]) * 10;
+        const ny = n[1] + Math.cos(time * 0.00015 + n[0]) * 5;
+        const nGrad = ctx.createRadialGradient(nx, ny, 0, nx, ny, n[2]);
+        nGrad.addColorStop(0, 'rgba(' + n[3][0] + ',' + n[3][1] + ',' + n[3][2] + ',' + n[3][3] + ')');
+        nGrad.addColorStop(0.5, 'rgba(' + n[3][0] + ',' + n[3][1] + ',' + n[3][2] + ',' + (n[3][3] * 0.5) + ')');
+        nGrad.addColorStop(1, 'rgba(' + n[3][0] + ',' + n[3][1] + ',' + n[3][2] + ',0)');
+        ctx.fillStyle = nGrad; ctx.fillRect(nx - n[2], ny - n[2], n[2] * 2, n[2] * 2);
+      }
+      // Shooting stars (2 on deterministic cycles)
+      for (let ss = 0; ss < 2; ss++) {
+        const ssCycle = 6000 + ss * 4000;
+        const ssPhase = ((time + ss * 3000) % ssCycle) / ssCycle;
+        if (ssPhase < 0.08) {
+          const prog = ssPhase / 0.08;
+          const sx = W * (0.2 + ss * 0.5) + prog * W * 0.3;
+          const sy = H * (0.05 + ss * 0.1) + prog * H * 0.15;
+          const sAlpha = prog < 0.5 ? prog * 2 : (1 - prog) * 2;
+          ctx.strokeStyle = 'rgba(220,210,255,' + (sAlpha * 0.6) + ')';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 20, sy - 8); ctx.stroke();
+          // Glow
+          const ssGlow = ctx.createRadialGradient(sx, sy, 0, sx, sy, 6);
+          ssGlow.addColorStop(0, 'rgba(220,210,255,' + (sAlpha * 0.4) + ')');
+          ssGlow.addColorStop(1, 'rgba(220,210,255,0)');
+          ctx.fillStyle = ssGlow; ctx.fillRect(sx - 6, sy - 6, 12, 12);
+        }
+      }
     }
 
-    // --- 2. Water body with horizontal color variation ---
-    // (7) Subtle color variation: greener on left, bluer on right, shifts with time
-    const colorShift = Math.sin(time * 0.0003) * 0.15;
+    // ===== WATER BODY GRADIENT =====
     const waterGrad = ctx.createLinearGradient(0, waterTop, 0, H);
-    waterGrad.addColorStop(0, '#1a4a6c');
-    waterGrad.addColorStop(0.25, '#153d5c');
-    waterGrad.addColorStop(0.5, '#0f3048');
-    waterGrad.addColorStop(0.75, '#0a2438');
-    waterGrad.addColorStop(1, '#051520');
+    for (const s of sc.water) waterGrad.addColorStop(s[0], s[1]);
     ctx.fillStyle = waterGrad;
     ctx.fillRect(0, waterTop, W, H - waterTop);
 
-    // Horizontal color tint overlay for left-green / right-blue variation
-    const tintAlpha = 0.06 + Math.sin(time * 0.0004) * 0.02;
-    const tintGrad = ctx.createLinearGradient(0, waterTop, W, waterTop);
-    tintGrad.addColorStop(0, 'rgba(30,120,80,' + (tintAlpha + colorShift * 0.05) + ')');
-    tintGrad.addColorStop(0.5, 'rgba(20,80,100,0)');
-    tintGrad.addColorStop(1, 'rgba(20,60,140,' + (tintAlpha - colorShift * 0.05) + ')');
-    ctx.fillStyle = tintGrad;
-    ctx.fillRect(0, waterTop, W, H - waterTop);
-
-    // --- 3. 8 wave layers with 3 sine frequencies per layer ---
-    const waveLayers = [
-      { y: waterTop - 6,  color: 'rgba(80,160,210,0.22)', speed: 0.0024, f1: 0.016, a1: 6,   f2: 0.008, a2: 4,   f3: 0.035, a3: 1.5, step: 2 },
-      { y: waterTop - 2,  color: 'rgba(65,145,200,0.20)', speed: 0.0021, f1: 0.019, a1: 5.5, f2: 0.010, a2: 3.5, f3: 0.040, a3: 1.2, step: 2 },
-      { y: waterTop + 4,  color: 'rgba(40,110,170,0.30)', speed: 0.0018, f1: 0.022, a1: 5,   f2: 0.011, a2: 3,   f3: 0.042, a3: 1.0, step: 3 },
-      { y: waterTop + 10, color: 'rgba(32,90,150,0.28)',  speed: 0.0015, f1: 0.024, a1: 4.5, f2: 0.013, a2: 2.8, f3: 0.038, a3: 0.9, step: 3 },
-      { y: waterTop + 18, color: 'rgba(24,75,130,0.24)',  speed: 0.0013, f1: 0.026, a1: 4,   f2: 0.014, a2: 2.5, f3: 0.033, a3: 0.8, step: 3 },
-      { y: waterTop + 27, color: 'rgba(18,60,110,0.20)',  speed: 0.0011, f1: 0.028, a1: 3.5, f2: 0.015, a2: 2.2, f3: 0.030, a3: 0.7, step: 4 },
-      { y: waterTop + 38, color: 'rgba(12,48,90,0.16)',   speed: 0.0009, f1: 0.030, a1: 3,   f2: 0.016, a2: 1.8, f3: 0.028, a3: 0.6, step: 4 },
-      { y: waterTop + 50, color: 'rgba(8,35,75,0.12)',    speed: 0.0007, f1: 0.033, a1: 2.5, f2: 0.018, a2: 1.5, f3: 0.025, a3: 0.5, step: 4 }
+    // ===== 8 WAVE LAYERS (scene-tinted) =====
+    const wr = sc.wr, wg = sc.wg, wb = sc.wb, am = sc.am;
+    const waveConfigs = [
+      { yOff: -6, aFrac: 0.22, spd: 0.0024, f1: 0.016, a1: 6, f2: 0.008, a2: 4, f3: 0.035, a3: 1.5, step: 2, rOff: 50, gOff: 80, bOff: 60 },
+      { yOff: -2, aFrac: 0.20, spd: 0.0021, f1: 0.019, a1: 5.5, f2: 0.010, a2: 3.5, f3: 0.040, a3: 1.2, step: 2, rOff: 35, gOff: 65, bOff: 50 },
+      { yOff: 4,  aFrac: 0.28, spd: 0.0018, f1: 0.022, a1: 5, f2: 0.011, a2: 3, f3: 0.042, a3: 1.0, step: 3, rOff: 10, gOff: 30, bOff: 20 },
+      { yOff: 10, aFrac: 0.25, spd: 0.0015, f1: 0.024, a1: 4.5, f2: 0.013, a2: 2.8, f3: 0.038, a3: 0.9, step: 3, rOff: 2, gOff: 10, bOff: 0 },
+      { yOff: 18, aFrac: 0.22, spd: 0.0013, f1: 0.026, a1: 4, f2: 0.014, a2: 2.5, f3: 0.033, a3: 0.8, step: 3, rOff: -6, gOff: -10, bOff: -20 },
+      { yOff: 27, aFrac: 0.18, spd: 0.0011, f1: 0.028, a1: 3.5, f2: 0.015, a2: 2.2, f3: 0.030, a3: 0.7, step: 4, rOff: -12, gOff: -20, bOff: -30 },
+      { yOff: 38, aFrac: 0.14, spd: 0.0009, f1: 0.030, a1: 3, f2: 0.016, a2: 1.8, f3: 0.028, a3: 0.6, step: 4, rOff: -18, gOff: -32, bOff: -40 },
+      { yOff: 50, aFrac: 0.10, spd: 0.0007, f1: 0.033, a1: 2.5, f2: 0.018, a2: 1.5, f3: 0.025, a3: 0.5, step: 4, rOff: -22, gOff: -45, bOff: -55 }
     ];
 
-    for (const wl of waveLayers) {
+    for (const wl of waveConfigs) {
+      const y0 = waterTop + wl.yOff;
       ctx.beginPath();
-      ctx.moveTo(0, wl.y);
+      ctx.moveTo(0, y0);
       for (let x = 0; x <= W; x += wl.step) {
         const wx = x + cameraX;
-        const sy = wl.y
-          + Math.sin(wx * wl.f1 + time * wl.speed) * wl.a1
-          + Math.sin(wx * wl.f2 + time * wl.speed * 0.7 + 1.5) * wl.a2
-          + Math.sin(wx * wl.f3 + time * wl.speed * 0.4 + 3.7) * wl.a3;
+        const sy = y0
+          + (Math.sin(wx * wl.f1 + time * wl.spd) * wl.a1
+          + Math.sin(wx * wl.f2 + time * wl.spd * 0.7 + 1.5) * wl.a2
+          + Math.sin(wx * wl.f3 + time * wl.spd * 0.4 + 3.7) * wl.a3) * am;
         ctx.lineTo(x, sy);
       }
-      ctx.lineTo(W, H);
-      ctx.lineTo(0, H);
-      ctx.closePath();
-      ctx.fillStyle = wl.color;
+      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+      const cr = Math.max(0, Math.min(255, wr + wl.rOff));
+      const cg = Math.max(0, Math.min(255, wg + wl.gOff));
+      const cb = Math.max(0, Math.min(255, wb + wl.bOff));
+      ctx.fillStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + wl.aFrac + ')';
       ctx.fill();
     }
 
-    // --- 4. Specular highlights on wave crests ---
-    for (let i = 0; i < 20; i++) {
-      const seedX = (i * 137.5 + time * 0.015) % W;
-      const wx = seedX + cameraX;
-      const wl = waveLayers[0];
-      const crestY = wl.y
-        + Math.sin(wx * wl.f1 + time * wl.speed) * wl.a1
-        + Math.sin(wx * wl.f2 + time * wl.speed * 0.7 + 1.5) * wl.a2
-        + Math.sin(wx * wl.f3 + time * wl.speed * 0.4 + 3.7) * wl.a3;
-      // Only highlight near crests (when derivative is near zero and value is high)
-      const dx = 0.5;
-      const wxNext = wx + dx;
-      const nextY = wl.y
-        + Math.sin(wxNext * wl.f1 + time * wl.speed) * wl.a1
-        + Math.sin(wxNext * wl.f2 + time * wl.speed * 0.7 + 1.5) * wl.a2
-        + Math.sin(wxNext * wl.f3 + time * wl.speed * 0.4 + 3.7) * wl.a3;
-      const slope = Math.abs(nextY - crestY);
-      if (slope < 0.15) {
-        const brightness = 0.25 + Math.sin(time * 0.003 + i * 0.8) * 0.1;
-        const radius = 1.5 + Math.sin(time * 0.002 + i * 1.3) * 0.8;
-        ctx.beginPath();
-        ctx.arc(seedX, crestY, radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(200,240,255,' + brightness + ')';
-        ctx.fill();
-        // Soft glow around highlight
-        const glowGrad = ctx.createRadialGradient(seedX, crestY, 0, seedX, crestY, radius * 4);
-        glowGrad.addColorStop(0, 'rgba(180,230,255,' + (brightness * 0.4) + ')');
-        glowGrad.addColorStop(1, 'rgba(180,230,255,0)');
-        ctx.fillStyle = glowGrad;
-        ctx.fillRect(seedX - radius * 4, crestY - radius * 4, radius * 8, radius * 8);
+    // ===== SPECULAR HIGHLIGHTS (skip for storm) =====
+    if (sceneId !== 4 && sceneId !== 5) {
+      for (let i = 0; i < 18; i++) {
+        const seedX = (i * 137.5 + time * 0.015) % W;
+        const wx = seedX + cameraX;
+        const wc = waveConfigs[0];
+        const y0 = waterTop + wc.yOff;
+        const crestY = y0 + (Math.sin(wx * wc.f1 + time * wc.spd) * wc.a1
+          + Math.sin(wx * wc.f2 + time * wc.spd * 0.7 + 1.5) * wc.a2
+          + Math.sin(wx * wc.f3 + time * wc.spd * 0.4 + 3.7) * wc.a3) * am;
+        const dx = 0.5;
+        const wxN = wx + dx;
+        const nextY = y0 + (Math.sin(wxN * wc.f1 + time * wc.spd) * wc.a1
+          + Math.sin(wxN * wc.f2 + time * wc.spd * 0.7 + 1.5) * wc.a2
+          + Math.sin(wxN * wc.f3 + time * wc.spd * 0.4 + 3.7) * wc.a3) * am;
+        if (Math.abs(nextY - crestY) < 0.15) {
+          const br = 0.2 + Math.sin(time * 0.003 + i * 0.8) * 0.08;
+          const rad = 1.5 + Math.sin(time * 0.002 + i * 1.3) * 0.6;
+          // Tint specular based on scene
+          const spR = sceneId === 3 ? 255 : 200;
+          const spG = sceneId === 3 ? 220 : 240;
+          const spB = sceneId === 3 ? 160 : 255;
+          ctx.beginPath(); ctx.arc(seedX, crestY, rad, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(' + spR + ',' + spG + ',' + spB + ',' + br + ')'; ctx.fill();
+        }
       }
     }
 
-    // --- 5. Surface reflection band ---
-    const reflAlpha = 0.12 + Math.sin(time * 0.0008) * 0.04;
-    const reflGrad = ctx.createLinearGradient(0, waterTop - 8, 0, waterTop + 20);
-    reflGrad.addColorStop(0, 'rgba(140,190,220,' + reflAlpha + ')');
-    reflGrad.addColorStop(0.3, 'rgba(100,160,200,' + (reflAlpha * 0.6) + ')');
-    reflGrad.addColorStop(1, 'rgba(60,120,170,0)');
-    ctx.fillStyle = reflGrad;
-    ctx.fillRect(0, waterTop - 8, W, 28);
+    // ===== SCENE-SPECIFIC WATER EFFECTS =====
+    // Sunset sun pillar reflection
+    if (sceneId === 3) {
+      const pillarGrad = ctx.createLinearGradient(0, waterTop, 0, waterTop + 80);
+      pillarGrad.addColorStop(0, 'rgba(255,180,80,0.15)');
+      pillarGrad.addColorStop(0.5, 'rgba(255,150,60,0.08)');
+      pillarGrad.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.fillStyle = pillarGrad;
+      ctx.fillRect(W * 0.45, waterTop, W * 0.1, 80);
+    }
+    // Aurora reflection on water
+    if (sceneId === 6) {
+      for (let ar = 0; ar < 2; ar++) {
+        const arColor = ar === 0 ? '0,180,100' : '100,60,200';
+        const arAlpha = 0.04 + Math.sin(time * 0.001 + ar * 3) * 0.02;
+        const arY = waterTop + 5 + ar * 15;
+        ctx.fillStyle = 'rgba(' + arColor + ',' + arAlpha + ')';
+        ctx.fillRect(0, arY, W, 12);
+      }
+    }
+    // Cosmic water sparkles
+    if (sceneId === 9) {
+      for (let sp = 0; sp < 10; sp++) {
+        const spx = (sp * 83.3 + time * 0.02) % W;
+        const spy = waterTop + 10 + (sp * 31.7) % 60;
+        const spA = 0.15 + Math.sin(time * 0.004 + sp * 2.1) * 0.1;
+        if (spA > 0.1) {
+          ctx.beginPath(); ctx.arc(spx, spy, 1, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,180,255,' + spA + ')'; ctx.fill();
+        }
+      }
+    }
+    // Moon reflection (night scene)
+    if (sceneId === 0) {
+      const mrX = W * 0.78 + Math.sin(time * 0.001) * 8;
+      const mrGrad = ctx.createRadialGradient(mrX, waterTop + 12, 1, mrX, waterTop + 12, 40);
+      mrGrad.addColorStop(0, 'rgba(200,220,240,0.1)');
+      mrGrad.addColorStop(0.4, 'rgba(150,180,210,0.04)');
+      mrGrad.addColorStop(1, 'rgba(100,140,180,0)');
+      ctx.fillStyle = mrGrad; ctx.fillRect(mrX - 40, waterTop, 80, 30);
+    }
+    // Sun reflection (sunny day)
+    if (sceneId === 1) {
+      const srX = W * 0.18 + Math.sin(time * 0.0008) * 10;
+      const srGrad = ctx.createRadialGradient(srX, waterTop + 10, 2, srX, waterTop + 10, 50);
+      srGrad.addColorStop(0, 'rgba(255,240,200,0.12)');
+      srGrad.addColorStop(0.5, 'rgba(255,220,160,0.05)');
+      srGrad.addColorStop(1, 'rgba(255,200,120,0)');
+      ctx.fillStyle = srGrad; ctx.fillRect(srX - 50, waterTop, 100, 30);
+    }
+    // Dappled forest light
+    if (sceneId === 2) {
+      for (let d = 0; d < 8; d++) {
+        const dx = (d * 107 + Math.sin(time * 0.0005 + d * 2.4) * 30 + cameraX * 0.3) % W;
+        const dy = waterTop + 8 + d * 5 + Math.sin(time * 0.001 + d) * 4;
+        const da = 0.06 + Math.sin(time * 0.002 + d * 1.5) * 0.03;
+        ctx.beginPath(); ctx.ellipse(dx, dy, 12, 4, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(140,200,100,' + da + ')'; ctx.fill();
+      }
+    }
+    // Cherry petal reflections on water
+    if (sceneId === 7) {
+      for (let pr = 0; pr < 8; pr++) {
+        const prx = (pr * 97 + time * 0.01) % W;
+        const pry = waterTop + 5 + (pr * 11) % 20;
+        const pra = 0.08 + Math.sin(time * 0.002 + pr * 1.8) * 0.04;
+        ctx.beginPath(); ctx.ellipse(prx, pry, 4, 1.5, Math.sin(time * 0.001 + pr) * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,150,170,' + pra + ')'; ctx.fill();
+      }
+    }
 
-    // Moon reflection on water surface
-    const moonReflX = moonX + Math.sin(time * 0.001) * 8;
-    const moonReflGrad = ctx.createRadialGradient(moonReflX, waterTop + 12, 1, moonReflX, waterTop + 12, 40);
-    moonReflGrad.addColorStop(0, 'rgba(200,220,240,0.12)');
-    moonReflGrad.addColorStop(0.4, 'rgba(150,180,210,0.05)');
-    moonReflGrad.addColorStop(1, 'rgba(100,140,180,0)');
-    ctx.fillStyle = moonReflGrad;
-    ctx.fillRect(moonReflX - 40, waterTop, 80, 30);
-
-    // --- 6. Underwater caustic light patterns ---
+    // ===== UNDERWATER CAUSTICS =====
     const waterDepth = H - waterTop;
-    for (let i = 0; i < 36; i++) {
+    const causticCount = sceneId === 4 ? 16 : 30;
+    for (let i = 0; i < causticCount; i++) {
       const row = Math.floor(i / 6);
       const col = i % 6;
       const baseX = (col + 0.5) * (W / 6);
-      const baseY = waterTop + 15 + row * (waterDepth * 0.14);
+      const baseY = waterTop + 15 + row * (waterDepth * 0.16);
       const t1 = time * 0.0008 + i * 1.7;
       const t2 = time * 0.0006 + i * 2.3;
-      // Overlapping sine patterns at different angles for caustic net
       const cx = baseX + Math.sin(t1 * 0.7 + col * 2.1) * 18 + Math.sin(t2 * 1.1) * 10;
       const cy = baseY + Math.sin(t1 * 0.5 + row * 1.8) * 8 + Math.cos(t2 * 0.8 + col) * 6;
-      // Brighter near surface, fade deeper
       const depthFrac = (cy - waterTop) / waterDepth;
-      const causticAlpha = Math.max(0, (0.14 - depthFrac * 0.12)) * (0.6 + Math.sin(t1 * 1.5) * 0.4);
+      const causticAlpha = Math.max(0, (0.12 - depthFrac * 0.1)) * (0.6 + Math.sin(t1 * 1.5) * 0.4);
       if (causticAlpha > 0.01) {
         const sz = 8 + Math.sin(t1 * 0.9 + i) * 5;
         const szY = 3 + Math.sin(t2 * 0.7) * 2;
-        const angle = Math.sin(t1 * 0.3 + i * 0.5) * 0.5;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, sz, szY, angle, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(100,180,220,' + causticAlpha + ')';
+        ctx.beginPath(); ctx.ellipse(cx, cy, sz, szY, Math.sin(t1 * 0.3 + i * 0.5) * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(' + sc.cr + ',' + sc.cg + ',' + sc.cb + ',' + causticAlpha + ')';
         ctx.fill();
       }
     }
 
-    // --- 7. Subsurface light shafts ---
-    for (let i = 0; i < 4; i++) {
-      const shaftX = W * (0.15 + i * 0.22) + Math.sin(time * 0.0005 + i * 1.5) * 25;
-      const topW = 8 + Math.sin(time * 0.0007 + i * 2.0) * 3;
-      const botW = 30 + Math.sin(time * 0.0004 + i * 1.2) * 10;
-      const shaftH = waterDepth * 0.6;
-      const shaftAlpha = 0.04 + Math.sin(time * 0.0006 + i * 1.8) * 0.015;
-      const shaftGrad = ctx.createLinearGradient(0, waterTop + 5, 0, waterTop + 5 + shaftH);
-      shaftGrad.addColorStop(0, 'rgba(100,180,220,' + shaftAlpha + ')');
-      shaftGrad.addColorStop(0.4, 'rgba(70,140,190,' + (shaftAlpha * 0.5) + ')');
-      shaftGrad.addColorStop(1, 'rgba(40,100,160,0)');
-      ctx.beginPath();
-      ctx.moveTo(shaftX - topW, waterTop + 5);
-      ctx.lineTo(shaftX + topW, waterTop + 5);
-      ctx.lineTo(shaftX + botW, waterTop + 5 + shaftH);
-      ctx.lineTo(shaftX - botW, waterTop + 5 + shaftH);
-      ctx.closePath();
-      ctx.fillStyle = shaftGrad;
-      ctx.fill();
-    }
-
-    // --- 8. Bubble particles ---
+    // ===== BUBBLES =====
     for (let i = 0; i < 6; i++) {
       const seed = i * 73.17;
       const period = 4000 + i * 1100;
-      const phase = ((time + seed * 300) % period) / period; // 0 to 1, cycling
+      const phase = ((time + seed * 300) % period) / period;
       const bx = (W * (0.1 + i * 0.15) + Math.sin(seed + time * 0.0003) * 30) % W;
       const by = H - phase * (H - waterTop - 5);
-      // Only draw if within water
       if (by > waterTop + 5) {
         const radius = 1 + (i % 3);
-        const bubbleAlpha = 0.15 + Math.sin(time * 0.003 + seed) * 0.05;
-        // Fade out near surface
-        const nearSurface = Math.max(0, 1 - (by - waterTop - 5) / 20);
-        const finalAlpha = bubbleAlpha * (1 - nearSurface * 0.8);
-        ctx.beginPath();
-        ctx.arc(bx, by, radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(170,215,240,' + finalAlpha + ')';
-        ctx.fill();
-        // Tiny highlight on bubble
-        ctx.beginPath();
-        ctx.arc(bx - radius * 0.3, by - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(220,240,255,' + (finalAlpha * 0.8) + ')';
-        ctx.fill();
+        const bAlpha = 0.12 + Math.sin(time * 0.003 + seed) * 0.04;
+        ctx.beginPath(); ctx.arc(bx, by, radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(170,215,240,' + bAlpha + ')'; ctx.fill();
+        ctx.beginPath(); ctx.arc(bx - radius * 0.3, by - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(220,240,255,' + (bAlpha * 0.7) + ')'; ctx.fill();
       }
     }
 
-    // Dark depth at very bottom
+    // ===== DEPTH GRADIENT =====
     const depthGrad = ctx.createLinearGradient(0, H - 60, 0, H);
     depthGrad.addColorStop(0, 'rgba(4,12,30,0)');
     depthGrad.addColorStop(1, 'rgba(4,12,30,0.7)');
