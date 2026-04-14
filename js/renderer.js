@@ -1104,17 +1104,21 @@ const Renderer = {
 
     const frame = Assets.getSpriteFrame('frog-sprites', frameIndex, 4);
     if (frame) {
-      const drawH = 65;
+      const drawH = 110;
       const drawW = drawH * (frame.sw / frame.sh);
+      // Align so frog feet (~80% down in sprite) sit at hitbox bottom (frog.y + height/2)
+      const footY = frog.y + frog.height * 0.5;
+      const drawY = footY - drawH * 0.78;
+      const drawX = frog.x - drawW / 2;
       ctx.save();
       if (frog.facing === -1) {
-        ctx.translate(frog.x, frog.y);
+        ctx.translate(frog.x, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          -drawW / 2, -drawH / 2 - 4, drawW, drawH);
+          -drawW / 2, drawY, drawW, drawH);
       } else {
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          frog.x - drawW / 2, frog.y - drawH / 2 - 4, drawW, drawH);
+          drawX, drawY, drawW, drawH);
       }
       ctx.restore();
       ctx.restore();
