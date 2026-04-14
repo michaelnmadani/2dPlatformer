@@ -1104,7 +1104,7 @@ const Renderer = {
 
     const frame = Assets.getSpriteFrame('frog-sprites', frameIndex, 4);
     if (frame) {
-      const drawH = 40;
+      const drawH = 65;
       const drawW = drawH * (frame.sw / frame.sh);
       ctx.save();
       if (frog.facing === -1) {
