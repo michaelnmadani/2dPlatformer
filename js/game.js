@@ -56,35 +56,38 @@ const Game = {
         this.canvas.height = 500;
         this.ctx = this.canvas.getContext('2d');
 
-        // Hide loading indicator if present
-        const loading = document.getElementById('loading');
-        if (loading) {
-            loading.style.display = 'none';
-        }
+        // Load assets first, then start game
+        Assets.load(() => {
+            // Hide loading indicator
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.display = 'none';
+            }
 
-        // Restore progress
-        const saved = localStorage.getItem('frogPrince_unlocked');
-        if (saved) {
-            this.unlockedLevel = parseInt(saved, 10) || 1;
-        }
+            // Restore progress
+            const saved = localStorage.getItem('frogPrince_unlocked');
+            if (saved) {
+                this.unlockedLevel = parseInt(saved, 10) || 1;
+            }
 
-        // Keyboard
-        this._setupKeyboard();
+            // Keyboard
+            this._setupKeyboard();
 
-        // Mouse / click
-        this.canvas.addEventListener('click', (e) => this._handleClick(e));
+            // Mouse / click
+            this.canvas.addEventListener('click', (e) => this._handleClick(e));
 
-        // Touch
-        this._setupTouch();
+            // Touch
+            this._setupTouch();
 
-        this.showTitle();
+            this.showTitle();
 
-        // Kick off the loop
-        const loop = (timestamp) => {
-            this.gameLoop(timestamp);
+            // Kick off the loop
+            const loop = (timestamp) => {
+                this.gameLoop(timestamp);
+                requestAnimationFrame(loop);
+            };
             requestAnimationFrame(loop);
-        };
-        requestAnimationFrame(loop);
+        });
     },
 
     // -------------------------------------------------------

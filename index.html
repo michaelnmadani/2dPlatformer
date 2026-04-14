@@ -27,12 +27,29 @@
             color: #8f8;
             font-size: 24px;
             font-family: Georgia, serif;
+            text-align: center;
+        }
+        #loading .bar-outer {
+            width: 200px;
+            height: 8px;
+            background: #1a3a1a;
+            border-radius: 4px;
+            margin: 12px auto 0;
+            overflow: hidden;
+        }
+        #loading .bar-inner {
+            height: 100%;
+            width: 0%;
+            background: #4a2;
+            border-radius: 4px;
+            transition: width 0.15s;
         }
     </style>
 </head>
 <body>
-    <div id="loading">Loading...</div>
+    <div id="loading">Loading...<div class="bar-outer"><div class="bar-inner" id="loadBar"></div></div></div>
     <canvas id="gameCanvas"></canvas>
+    <script src="js/assets.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/renderer.js"></script>
     <script src="js/physics.js"></script>

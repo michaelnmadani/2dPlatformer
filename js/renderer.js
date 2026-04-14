@@ -31,13 +31,20 @@ const Renderer = {
     ];
     const sc = scenes[sceneId] || scenes[0];
 
-    // --- Draw sky gradient ---
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
-    for (const s of sc.sky) skyGrad.addColorStop(s[0], s[1]);
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, W, H * 0.65);
+    // --- Draw background image or fallback to procedural sky ---
+    const bgImg = Assets.getSceneBg(sceneId);
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, W, H);
+    } else {
+      // Fallback: procedural sky gradient
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
+      for (const s of sc.sky) skyGrad.addColorStop(s[0], s[1]);
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, W, H * 0.65);
+    }
 
-    // ===== SCENE-SPECIFIC SKY EFFECTS =====
+    // ===== SCENE-SPECIFIC SKY EFFECTS (skip if background image loaded) =====
+    if (!bgImg) {
 
     if (sceneId === 0) {
       // --- Moonlit Night: moon, stars, fireflies ---
@@ -423,14 +430,18 @@ const Renderer = {
         }
       }
     }
+    } // end !bgImg sky effects
 
     // ===== WATER BODY GRADIENT =====
-    const waterGrad = ctx.createLinearGradient(0, waterTop, 0, H);
-    for (const s of sc.water) waterGrad.addColorStop(s[0], s[1]);
-    ctx.fillStyle = waterGrad;
-    ctx.fillRect(0, waterTop, W, H - waterTop);
+    if (!bgImg) {
+      const waterGrad = ctx.createLinearGradient(0, waterTop, 0, H);
+      for (const s of sc.water) waterGrad.addColorStop(s[0], s[1]);
+      ctx.fillStyle = waterGrad;
+      ctx.fillRect(0, waterTop, W, H - waterTop);
+    }
 
-    // ===== 8 WAVE LAYERS (scene-tinted) =====
+    // ===== 8 WAVE LAYERS (scene-tinted, reduced when bg image present) =====
+    const alphaScale = bgImg ? 0.5 : 1.0;
     const wr = sc.wr, wg = sc.wg, wb = sc.wb, am = sc.am;
     const waveConfigs = [
       { yOff: -6, aFrac: 0.22, spd: 0.0024, f1: 0.016, a1: 6, f2: 0.008, a2: 4, f3: 0.035, a3: 1.5, step: 2, rOff: 50, gOff: 80, bOff: 60 },
@@ -459,7 +470,7 @@ const Renderer = {
       const cr = Math.max(0, Math.min(255, wr + wl.rOff));
       const cg = Math.max(0, Math.min(255, wg + wl.gOff));
       const cb = Math.max(0, Math.min(255, wb + wl.bOff));
-      ctx.fillStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + wl.aFrac + ')';
+      ctx.fillStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + (wl.aFrac * alphaScale) + ')';
       ctx.fill();
     }
 
@@ -1080,13 +1091,41 @@ const Renderer = {
 
   drawFrog(ctx, frog, time) {
     ctx.save();
+
+    const jumping = frog.vy < 0;
+    const falling = frog.vy > 0;
+
+    // Try sprite-based rendering
+    // Frames: 0=idle, 1=crouch, 2=jump, 3=fall
+    let frameIndex = 0;
+    if (jumping) frameIndex = 2;
+    else if (falling) frameIndex = 3;
+    else if (Math.abs(frog.vx || 0) > 0.5) frameIndex = 1;
+
+    const frame = Assets.getSpriteFrame('frog-sprites', frameIndex, 4);
+    if (frame) {
+      const drawH = 40;
+      const drawW = drawH * (frame.sw / frame.sh);
+      ctx.save();
+      if (frog.facing === -1) {
+        ctx.translate(frog.x, frog.y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
+          -drawW / 2, -drawH / 2 - 4, drawW, drawH);
+      } else {
+        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
+          frog.x - drawW / 2, frog.y - drawH / 2 - 4, drawW, drawH);
+      }
+      ctx.restore();
+      ctx.restore();
+      return;
+    }
+
+    // Fallback: procedural frog
     ctx.translate(frog.x, frog.y);
     if (frog.facing === -1) {
       ctx.scale(-1, 1);
     }
-
-    const jumping = frog.vy < 0;
-    const falling = frog.vy > 0;
 
     // Back legs
     ctx.strokeStyle = '#2a7722';
@@ -1394,86 +1433,67 @@ const Renderer = {
 
   drawPrince(ctx, prince, time) {
     ctx.save();
-    ctx.translate(prince.x, prince.y);
-
     const bob = Math.sin(time * 0.003) * 2;
     const tp = prince.transformProgress || 0;
 
-    // Interpolate toward frog shape
-    const bodyHeight = 30 * (1 - tp * 0.5);
-    const bodyWidth = 16 * (1 + tp * 0.3);
-    const headRadius = 10 * (1 - tp * 0.2);
-    const greenMix = tp;
+    // Try sprite-based rendering
+    const sheetKey = tp > 0 ? 'prince-transform' : 'prince-idle';
+    let frameIndex;
+    if (tp > 0) {
+      // Transform: pick frame based on transform progress (0→1 maps to frames 0→3)
+      frameIndex = Math.min(3, Math.floor(tp * 4));
+    } else {
+      // Idle: cycle through 4 frames
+      frameIndex = Math.floor((time * 0.003) % 4);
+    }
+    const frame = Assets.getSpriteFrame(sheetKey, frameIndex, 4);
 
-    const skinR = Math.round(255 * (1 - greenMix) + 51 * greenMix);
-    const skinG = Math.round(218 * (1 - greenMix) + 170 * greenMix);
-    const skinB = Math.round(185 * (1 - greenMix) + 34 * greenMix);
-    const skinColor = `rgb(${skinR},${skinG},${skinB})`;
-
-    const robeR = Math.round(40 * (1 - greenMix) + 45 * greenMix);
-    const robeG = Math.round(60 * (1 - greenMix) + 130 * greenMix);
-    const robeB = Math.round(150 * (1 - greenMix) + 40 * greenMix);
-    const robeColor = `rgb(${robeR},${robeG},${robeB})`;
-
-    ctx.translate(0, bob);
-
-    // Robe/body
-    ctx.fillStyle = robeColor;
-    ctx.fillRect(-bodyWidth / 2, -5, bodyWidth, bodyHeight);
-
-    // Arms
-    ctx.strokeStyle = robeColor;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(-bodyWidth / 2, 2);
-    ctx.lineTo(-bodyWidth / 2 - 8, 14);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(bodyWidth / 2, 2);
-    ctx.lineTo(bodyWidth / 2 + 8, 14);
-    ctx.stroke();
-
-    // Head
-    ctx.beginPath();
-    ctx.arc(0, -10, headRadius, 0, Math.PI * 2);
-    ctx.fillStyle = skinColor;
-    ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(-3, -12, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(3, -12, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'black';
-    ctx.beginPath();
-    ctx.arc(-2.5, -12, 1.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(3.5, -12, 1.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Smile
-    ctx.beginPath();
-    ctx.arc(0, -8, 3, 0.2, Math.PI - 0.2);
-    ctx.strokeStyle = '#884422';
-    ctx.lineWidth = 0.8;
-    ctx.stroke();
-
-    // Crown
-    ctx.fillStyle = '#FFD700';
-    ctx.beginPath();
-    ctx.moveTo(-7, -18);
-    ctx.lineTo(-7, -24);
-    ctx.lineTo(-3, -20);
-    ctx.lineTo(0, -26);
-    ctx.lineTo(3, -20);
-    ctx.lineTo(7, -24);
-    ctx.lineTo(7, -18);
-    ctx.closePath();
-    ctx.fill();
+    if (frame) {
+      // Draw sprite centered on prince position
+      const drawH = 70;
+      const drawW = drawH * (frame.sw / frame.sh);
+      ctx.drawImage(
+        frame.img,
+        frame.sx, frame.sy, frame.sw, frame.sh,
+        prince.x - drawW / 2, prince.y - drawH + 20 + bob, drawW, drawH
+      );
+    } else {
+      // Fallback: procedural prince
+      ctx.translate(prince.x, prince.y);
+      ctx.translate(0, bob);
+      const bodyHeight = 30 * (1 - tp * 0.5);
+      const bodyWidth = 16 * (1 + tp * 0.3);
+      const headRadius = 10 * (1 - tp * 0.2);
+      const greenMix = tp;
+      const skinR = Math.round(255 * (1 - greenMix) + 51 * greenMix);
+      const skinG = Math.round(218 * (1 - greenMix) + 170 * greenMix);
+      const skinB = Math.round(185 * (1 - greenMix) + 34 * greenMix);
+      const skinColor = 'rgb(' + skinR + ',' + skinG + ',' + skinB + ')';
+      const robeR = Math.round(40 * (1 - greenMix) + 45 * greenMix);
+      const robeG = Math.round(60 * (1 - greenMix) + 130 * greenMix);
+      const robeB = Math.round(150 * (1 - greenMix) + 40 * greenMix);
+      const robeColor = 'rgb(' + robeR + ',' + robeG + ',' + robeB + ')';
+      ctx.fillStyle = robeColor;
+      ctx.fillRect(-bodyWidth / 2, -5, bodyWidth, bodyHeight);
+      ctx.strokeStyle = robeColor; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(-bodyWidth/2, 2); ctx.lineTo(-bodyWidth/2-8, 14); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bodyWidth/2, 2); ctx.lineTo(bodyWidth/2+8, 14); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, -10, headRadius, 0, Math.PI * 2);
+      ctx.fillStyle = skinColor; ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.beginPath(); ctx.arc(-3, -12, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(3, -12, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'black';
+      ctx.beginPath(); ctx.arc(-2.5, -12, 1.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(3.5, -12, 1.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, -8, 3, 0.2, Math.PI-0.2);
+      ctx.strokeStyle = '#884422'; ctx.lineWidth = 0.8; ctx.stroke();
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.moveTo(-7,-18); ctx.lineTo(-7,-24); ctx.lineTo(-3,-20);
+      ctx.lineTo(0,-26); ctx.lineTo(3,-20); ctx.lineTo(7,-24); ctx.lineTo(7,-18);
+      ctx.closePath(); ctx.fill();
+    }
 
     ctx.restore();
   },
@@ -1548,37 +1568,41 @@ const Renderer = {
     ctx.globalAlpha = p.life !== undefined ? p.life : 1;
 
     if (p.type === 'heart') {
-      ctx.fillStyle = 'red';
-      const s = p.size || 5;
-      const x = p.x;
-      const y = p.y;
-      ctx.beginPath();
-      ctx.moveTo(x, y + s * 0.3);
-      ctx.bezierCurveTo(x, y - s * 0.3, x - s, y - s * 0.3, x - s, y + s * 0.2);
-      ctx.bezierCurveTo(x - s, y + s * 0.7, x, y + s, x, y + s * 1.2);
-      ctx.bezierCurveTo(x, y + s, x + s, y + s * 0.7, x + s, y + s * 0.2);
-      ctx.bezierCurveTo(x + s, y - s * 0.3, x, y - s * 0.3, x, y + s * 0.3);
-      ctx.closePath();
-      ctx.fill();
+      const heartImg = Assets.get('particle-heart');
+      const s = (p.size || 5) * 2.5;
+      if (heartImg) {
+        ctx.drawImage(heartImg, p.x - s / 2, p.y - s / 2, s, s);
+      } else {
+        ctx.fillStyle = 'red';
+        const hs = p.size || 5;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y + hs * 0.3);
+        ctx.bezierCurveTo(p.x, p.y - hs * 0.3, p.x - hs, p.y - hs * 0.3, p.x - hs, p.y + hs * 0.2);
+        ctx.bezierCurveTo(p.x - hs, p.y + hs * 0.7, p.x, p.y + hs, p.x, p.y + hs * 1.2);
+        ctx.bezierCurveTo(p.x, p.y + hs, p.x + hs, p.y + hs * 0.7, p.x + hs, p.y + hs * 0.2);
+        ctx.bezierCurveTo(p.x + hs, p.y - hs * 0.3, p.x, p.y - hs * 0.3, p.x, p.y + hs * 0.3);
+        ctx.closePath(); ctx.fill();
+      }
     } else if (p.type === 'splash') {
       ctx.fillStyle = 'rgba(100,180,255,0.8)';
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size || 3, 0, Math.PI * 2);
       ctx.fill();
     } else if (p.type === 'sparkle') {
-      ctx.fillStyle = '#ffdd44';
-      const s = p.size || 4;
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y - s);
-      ctx.lineTo(p.x + s * 0.3, p.y - s * 0.3);
-      ctx.lineTo(p.x + s, p.y);
-      ctx.lineTo(p.x + s * 0.3, p.y + s * 0.3);
-      ctx.lineTo(p.x, p.y + s);
-      ctx.lineTo(p.x - s * 0.3, p.y + s * 0.3);
-      ctx.lineTo(p.x - s, p.y);
-      ctx.lineTo(p.x - s * 0.3, p.y - s * 0.3);
-      ctx.closePath();
-      ctx.fill();
+      const sparkleImg = Assets.get('particle-sparkle');
+      const s = (p.size || 4) * 2.5;
+      if (sparkleImg) {
+        ctx.drawImage(sparkleImg, p.x - s / 2, p.y - s / 2, s, s);
+      } else {
+        ctx.fillStyle = '#ffdd44';
+        const ss = p.size || 4;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - ss); ctx.lineTo(p.x + ss * 0.3, p.y - ss * 0.3);
+        ctx.lineTo(p.x + ss, p.y); ctx.lineTo(p.x + ss * 0.3, p.y + ss * 0.3);
+        ctx.lineTo(p.x, p.y + ss); ctx.lineTo(p.x - ss * 0.3, p.y + ss * 0.3);
+        ctx.lineTo(p.x - ss, p.y); ctx.lineTo(p.x - ss * 0.3, p.y - ss * 0.3);
+        ctx.closePath(); ctx.fill();
+      }
     } else if (p.type === 'wind') {
       ctx.strokeStyle = 'rgba(255,255,255,0.5)';
       ctx.lineWidth = 1.5;
@@ -1602,18 +1626,22 @@ const Renderer = {
     ctx.fillText('Level ' + level, 10, 30);
 
     // Lives as hearts
+    const heartImg = Assets.get('particle-heart');
     for (let i = 0; i < lives; i++) {
       const hx = canvas.width - 30 - i * 28;
-      const hy = 20;
-      ctx.fillStyle = '#ee3344';
-      ctx.beginPath();
-      ctx.moveTo(hx, hy + 3);
-      ctx.bezierCurveTo(hx, hy - 2, hx - 7, hy - 2, hx - 7, hy + 2);
-      ctx.bezierCurveTo(hx - 7, hy + 7, hx, hy + 11, hx, hy + 13);
-      ctx.bezierCurveTo(hx, hy + 11, hx + 7, hy + 7, hx + 7, hy + 2);
-      ctx.bezierCurveTo(hx + 7, hy - 2, hx, hy - 2, hx, hy + 3);
-      ctx.closePath();
-      ctx.fill();
+      const hy = 12;
+      if (heartImg) {
+        ctx.drawImage(heartImg, hx - 10, hy, 20, 20);
+      } else {
+        ctx.fillStyle = '#ee3344';
+        ctx.beginPath();
+        ctx.moveTo(hx, hy + 11);
+        ctx.bezierCurveTo(hx, hy + 6, hx - 7, hy + 6, hx - 7, hy + 10);
+        ctx.bezierCurveTo(hx - 7, hy + 15, hx, hy + 19, hx, hy + 21);
+        ctx.bezierCurveTo(hx, hy + 19, hx + 7, hy + 15, hx + 7, hy + 10);
+        ctx.bezierCurveTo(hx + 7, hy + 6, hx, hy + 6, hx, hy + 11);
+        ctx.closePath(); ctx.fill();
+      }
     }
 
     ctx.restore();
@@ -1621,34 +1649,71 @@ const Renderer = {
 
   drawTitleScreen(ctx, canvas, time) {
     ctx.save();
+    const W = canvas.width, H = canvas.height;
 
-    // Background gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    grad.addColorStop(0, '#0a1a3c');
-    grad.addColorStop(1, '#1a3a5c');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Animated water at bottom
-    const waterY = canvas.height * 0.75;
-    for (let layer = 0; layer < 3; layer++) {
-      ctx.beginPath();
-      ctx.moveTo(0, waterY + layer * 12);
-      for (let x = 0; x <= canvas.width; x += 4) {
-        const sy = waterY + layer * 12 + Math.sin(x * 0.02 + time * 0.002 + layer * 40) * 6;
-        ctx.lineTo(x, sy);
-      }
-      ctx.lineTo(canvas.width, canvas.height);
-      ctx.lineTo(0, canvas.height);
-      ctx.closePath();
-      ctx.fillStyle = `rgba(20,${60 + layer * 15},${120 + layer * 20},${0.5 - layer * 0.1})`;
-      ctx.fill();
+    // Background: use moonlit night image or gradient fallback
+    const bgImg = Assets.get('bg-moonlit-night');
+    if (bgImg) {
+      ctx.drawImage(bgImg, 0, 0, W, H);
+      // Dark overlay for readability
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#0a1a3c');
+      grad.addColorStop(1, '#1a3a5c');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
     }
 
-    // Simple frog on lilypad
-    const frogX = canvas.width / 2;
-    const frogY = waterY - 5;
+    // Animated sparkle particles
+    for (let i = 0; i < 15; i++) {
+      const sx = (i * 57.3 + time * 0.01) % W;
+      const sy = (i * 37.7 + Math.sin(time * 0.001 + i * 2.1) * 30) % (H * 0.6);
+      const sa = 0.2 + Math.sin(time * 0.003 + i * 1.5) * 0.15;
+      const sparkleImg = Assets.get('particle-sparkle');
+      if (sparkleImg) {
+        ctx.globalAlpha = sa;
+        ctx.drawImage(sparkleImg, sx - 6, sy - 6, 12, 12);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,240,180,' + sa + ')'; ctx.fill();
+      }
+    }
 
+    // Title logo image or text fallback
+    const logoImg = Assets.get('title-logo');
+    if (logoImg) {
+      const logoW = 400;
+      const logoH = logoW * (logoImg.height / logoImg.width);
+      const logoX = (W - logoW) / 2;
+      const logoY = H * 0.06;
+      // Glow effect
+      ctx.shadowColor = 'rgba(50,170,30,0.5)';
+      ctx.shadowBlur = 25;
+      ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 48px Georgia';
+      ctx.shadowColor = 'rgba(50,170,30,0.6)';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = '#44aa22';
+      ctx.fillText('FROG PRINCE', W / 2, H * 0.25);
+      ctx.shadowBlur = 0;
+    }
+
+    // Subtitle
+    ctx.textAlign = 'center';
+    ctx.font = '18px Georgia';
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillText('A Fairy Tale Platformer', W / 2, H * 0.42);
+
+    // Frog sprite on lilypad
+    const frogFrame = Assets.getSpriteFrame('frog-sprites', 0, 4);
+    const frogY = H * 0.68;
+    const frogX = W / 2;
     // Lilypad
     ctx.beginPath();
     ctx.ellipse(frogX, frogY + 10, 35, 10, 0, 0.3, Math.PI * 2 - 0.3);
@@ -1656,49 +1721,40 @@ const Renderer = {
     ctx.closePath();
     ctx.fillStyle = '#2d8a4e';
     ctx.fill();
+    // Frog
+    if (frogFrame) {
+      const fh = 35;
+      const fw = fh * (frogFrame.sw / frogFrame.sh);
+      ctx.drawImage(frogFrame.img, frogFrame.sx, frogFrame.sy, frogFrame.sw, frogFrame.sh,
+        frogX - fw / 2, frogY - fh / 2 - 5, fw, fh);
+    } else {
+      ctx.beginPath(); ctx.ellipse(frogX, frogY, 14, 10, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#33aa22'; ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.beginPath(); ctx.arc(frogX - 5, frogY - 8, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(frogX + 5, frogY - 8, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'black';
+      ctx.beginPath(); ctx.arc(frogX - 4, frogY - 8, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(frogX + 6, frogY - 8, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
 
-    // Frog body
-    ctx.beginPath();
-    ctx.ellipse(frogX, frogY, 14, 10, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#33aa22';
-    ctx.fill();
-
-    // Frog eyes
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(frogX - 5, frogY - 8, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(frogX + 5, frogY - 8, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'black';
-    ctx.beginPath();
-    ctx.arc(frogX - 4, frogY - 8, 1.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(frogX + 6, frogY - 8, 1.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Title with glow
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 48px Georgia';
-    ctx.shadowColor = 'rgba(50,170,30,0.6)';
-    ctx.shadowBlur = 20;
-    ctx.fillStyle = '#44aa22';
-    ctx.fillText('FROG PRINCE', canvas.width / 2, canvas.height * 0.25);
-    ctx.shadowBlur = 0;
-
-    // Subtitle
-    ctx.font = '18px Georgia';
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.fillText('A Fairy Tale Platformer', canvas.width / 2, canvas.height * 0.25 + 40);
+    // Prince sprite on right side
+    const princeFrame = Assets.getSpriteFrame('prince-idle', Math.floor((time * 0.003) % 4), 4);
+    if (princeFrame) {
+      const ph = 55;
+      const pw = ph * (princeFrame.sw / princeFrame.sh);
+      ctx.globalAlpha = 0.7;
+      ctx.drawImage(princeFrame.img, princeFrame.sx, princeFrame.sy, princeFrame.sw, princeFrame.sh,
+        W * 0.78 - pw / 2, frogY - ph + 15, pw, ph);
+      ctx.globalAlpha = 1;
+    }
 
     // Blinking start text
     const alpha = (Math.sin(time * 0.003) + 1) / 2;
     ctx.globalAlpha = 0.3 + alpha * 0.7;
     ctx.font = '20px Georgia';
     ctx.fillStyle = 'white';
-    ctx.fillText('Press SPACE or Click to Start', canvas.width / 2, canvas.height * 0.55);
+    ctx.fillText('Press SPACE or Click to Start', W / 2, H * 0.88);
     ctx.globalAlpha = 1;
 
     ctx.textAlign = 'left';
