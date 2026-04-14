@@ -1106,14 +1106,13 @@ const Renderer = {
     if (frame) {
       const drawH = 110;
       const drawW = drawH * (frame.sw / frame.sh);
-      // Align so frog feet (~80% down in sprite) sit at hitbox bottom (frog.y + height)
+      // Align so frog feet (~70% down in sprite) sit at hitbox bottom (frog.y + height)
       const footY = frog.y + frog.height;
-      const drawY = footY - drawH * 0.78;
-      const centerX = frog.x + frog.width / 2;
-      const drawX = centerX - drawW / 2;
+      const drawY = footY - drawH * 0.70;
+      const drawX = frog.x - drawW / 2;
       ctx.save();
       if (frog.facing === -1) {
-        ctx.translate(centerX, 0);
+        ctx.translate(frog.x, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
           -drawW / 2, drawY, drawW, drawH);
