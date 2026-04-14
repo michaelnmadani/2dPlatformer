@@ -35,6 +35,8 @@ const Assets = {
       'prince-idle':       'assets/prince-idle.png',
       'prince-transform':  'assets/prince-transform.png',
       'frog-sprites':      'assets/frog-sprites.png',
+      // Dragonfly
+      'dragonfly-sprites': 'assets/dragonfly-sprites.png',
       // Particles
       'particle-heart':    'assets/particle-heart.png',
       'particle-sparkle':  'assets/particle-sparkle.png',

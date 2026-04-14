@@ -1504,9 +1504,37 @@ const Renderer = {
 
   drawDragonfly(ctx, df, time) {
     ctx.save();
+
+    // Animate wing flap: cycle frames 0,1,2,1 for smooth loop
+    const t = Date.now();
+    const flapCycle = [0, 1, 2, 1];
+    const frameIndex = flapCycle[Math.floor(t / 100) % 4];
+
+    const frame = Assets.getSpriteFrame('dragonfly-sprites', frameIndex, 4);
+    if (frame) {
+      const drawH = 45;
+      const drawW = drawH * (frame.sw / frame.sh);
+      const drawX = df.x - drawW / 2;
+      const drawY = df.y - drawH / 2;
+      ctx.save();
+      if (df.direction === -1) {
+        ctx.translate(df.x, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
+          -drawW / 2, drawY, drawW, drawH);
+      } else {
+        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
+          drawX, drawY, drawW, drawH);
+      }
+      ctx.restore();
+      ctx.restore();
+      return;
+    }
+
+    // Fallback: procedural dragonfly
     ctx.translate(df.x, df.y);
 
-    const flapAngle = Math.sin(time * 0.01) * 0.5;
+    const flapAngle = Math.sin((time || Date.now()) * 0.01) * 0.5;
 
     // Body
     ctx.fillStyle = '#4466aa';
