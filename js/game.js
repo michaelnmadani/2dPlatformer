@@ -14,6 +14,7 @@ const Game = {
     unlockedLevel: 1,
     lives: 5,
     maxLives: 5,
+    hardcoreMode: false,
     frog: null,
     prince: null,
     lilypads: [],
@@ -205,6 +206,14 @@ const Game = {
                 break;
 
             case 'LEVEL_SELECT':
+                // Check mode toggle click
+                if (this._modeToggle &&
+                    mx >= this._modeToggle.x && mx <= this._modeToggle.x + this._modeToggle.w &&
+                    my >= this._modeToggle.y && my <= this._modeToggle.y + this._modeToggle.h) {
+                    Audio.click();
+                    this.hardcoreMode = !this.hardcoreMode;
+                    break;
+                }
                 for (const btn of this.levelButtons) {
                     if (
                         mx >= btn.x && mx <= btn.x + btn.w &&
@@ -212,8 +221,7 @@ const Game = {
                         btn.level <= this.unlockedLevel
                     ) {
                         Audio.click();
-                        // Starting from level select = replay mode (fresh hearts, no campaign)
-                        this.startLevel(btn.level, false);
+                        this.startLevel(btn.level, this.hardcoreMode);
                         break;
                     }
                 }
@@ -545,9 +553,11 @@ const Game = {
                 break;
 
             case 'LEVEL_SELECT':
-                this.levelButtons = Renderer.drawLevelSelect(
-                    ctx, canvas, this.unlockedLevel, Levels.CLOTHING_NAMES
+                var lsResult = Renderer.drawLevelSelect(
+                    ctx, canvas, this.unlockedLevel, Levels.CLOTHING_NAMES, this.hardcoreMode
                 );
+                this.levelButtons = lsResult.buttons;
+                this._modeToggle = lsResult.toggle;
                 break;
 
             case 'PLAYING':

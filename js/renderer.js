@@ -1808,7 +1808,7 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawLevelSelect(ctx, canvas, unlockedLevel, clothingNames) {
+  drawLevelSelect(ctx, canvas, unlockedLevel, clothingNames, hardcoreMode) {
     ctx.save();
 
     // Dark gradient background
@@ -1828,7 +1828,6 @@ const Renderer = {
     const btnH = 80;
     const gap = 20;
     const cols = 5;
-    const rows = 2;
     const totalW = cols * btnW + (cols - 1) * gap;
     const startX = (canvas.width - totalW) / 2;
     const startY = 90;
@@ -1886,9 +1885,55 @@ const Renderer = {
       }
     }
 
+    // Mode toggle
+    const toggleW = 200;
+    const toggleH = 40;
+    const toggleX = (canvas.width - toggleW) / 2;
+    const toggleY = startY + 2 * (btnH + gap) + 20;
+
+    // Toggle background
+    ctx.fillStyle = hardcoreMode ? '#6a2222' : '#2a4a6a';
+    ctx.fillRect(toggleX, toggleY, toggleW, toggleH);
+    ctx.strokeStyle = hardcoreMode ? '#aa4444' : '#4a7aaa';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(toggleX, toggleY, toggleW, toggleH);
+
+    // Toggle slider track
+    const trackX = toggleX + 10;
+    const trackY = toggleY + 14;
+    const trackW = 32;
+    const trackH = 12;
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.roundRect(trackX, trackY, trackW, trackH, 6);
+    ctx.fill();
+
+    // Toggle slider knob
+    const knobX = hardcoreMode ? trackX + trackW - 12 : trackX;
+    ctx.fillStyle = hardcoreMode ? '#ff6655' : '#55aaff';
+    ctx.beginPath();
+    ctx.roundRect(knobX, trackY, 12, trackH, 6);
+    ctx.fill();
+
+    // Mode text
+    ctx.font = 'bold 16px Georgia';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'left';
+    ctx.fillText(hardcoreMode ? 'Hardcore' : 'Standard', toggleX + 50, toggleY + 26);
+
+    // Mode description
+    ctx.font = '10px Georgia';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.textAlign = 'center';
+    if (hardcoreMode) {
+      ctx.fillText('5 lives, restart from Level 1 on game over', canvas.width / 2, toggleY + toggleH + 16);
+    } else {
+      ctx.fillText('5 lives, retry same level on game over', canvas.width / 2, toggleY + toggleH + 16);
+    }
+
     ctx.textAlign = 'left';
     ctx.restore();
-    return buttons;
+    return { buttons: buttons, toggle: { x: toggleX, y: toggleY, w: toggleW, h: toggleH } };
   },
 
   drawLevelComplete(ctx, canvas, level, clothingName, time) {
