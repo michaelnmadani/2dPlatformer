@@ -42,7 +42,7 @@ const Levels = {
                     { x: 2830, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 2840, y: 355 },
+                prince: { x: 2830, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
@@ -78,7 +78,7 @@ const Levels = {
                     { x: 3355, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 3365, y: 355 },
+                prince: { x: 3355, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
@@ -116,7 +116,7 @@ const Levels = {
                     { x: 3815, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 3825, y: 355 },
+                prince: { x: 3815, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
@@ -153,7 +153,7 @@ const Levels = {
                     { x: 3720, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 3730, y: 355 },
+                prince: { x: 3720, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
@@ -201,7 +201,7 @@ const Levels = {
                     { x: 2800, y: 290, patrolRange: 100 },
                     { x: 3400, y: 310, patrolRange: 110 }
                 ],
-                prince: { x: 4200, y: 355 },
+                prince: { x: 4190, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
@@ -240,7 +240,7 @@ const Levels = {
                     { x: 4030, y: 400, width: 80,  type: 'static' }
                 ],
                 dragonflies: [],
-                prince: { x: 4040, y: 355 },
+                prince: { x: 4030, y: 355 },
                 wind: { force: 2, interval: 180, duration: 120 },
                 startX: 105,
                 startY: 370,
@@ -287,7 +287,7 @@ const Levels = {
                     { x: 2600, y: 310, patrolRange: 110 },
                     { x: 3400, y: 290, patrolRange: 100 }
                 ],
-                prince: { x: 4425, y: 355 },
+                prince: { x: 4415, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
@@ -336,7 +336,7 @@ const Levels = {
                     { x: 3600, y: 300, patrolRange: 100 },
                     { x: 4400, y: 280, patrolRange: 110 }
                 ],
-                prince: { x: 5050, y: 355 },
+                prince: { x: 5040, y: 355 },
                 wind: { force: 1.5, interval: 240, duration: 90 },
                 startX: 105,
                 startY: 370,
@@ -389,7 +389,7 @@ const Levels = {
                     { x: 3900, y: 310, patrolRange: 90 },
                     { x: 4500, y: 290, patrolRange: 100 }
                 ],
-                prince: { x: 5195, y: 355 },
+                prince: { x: 5185, y: 355 },
                 wind: { force: 0, interval: 0, duration: 0 },
                 startX: 105,
                 startY: 370,
@@ -450,7 +450,7 @@ const Levels = {
                     { x: 4800, y: 300, patrolRange: 110 },
                     { x: 5400, y: 280, patrolRange: 120 }
                 ],
-                prince: { x: 6645, y: 355 },
+                prince: { x: 6635, y: 355 },
                 wind: { force: 2.5, interval: 150, duration: 100 },
                 startX: 105,
                 startY: 370,

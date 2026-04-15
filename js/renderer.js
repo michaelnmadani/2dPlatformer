@@ -441,7 +441,7 @@ const Renderer = {
     }
 
     // ===== 8 WAVE LAYERS (scene-tinted, reduced when bg image present) =====
-    const alphaScale = bgImg ? 0.5 : 1.0;
+    const alphaScale = bgImg ? 0.85 : 1.0;
     const wr = sc.wr, wg = sc.wg, wb = sc.wb, am = sc.am;
     const waveConfigs = [
       { yOff: -6, aFrac: 0.22, spd: 0.0024, f1: 0.016, a1: 6, f2: 0.008, a2: 4, f3: 0.035, a3: 1.5, step: 2, rOff: 50, gOff: 80, bOff: 60 },
@@ -1473,8 +1473,8 @@ const Renderer = {
       // Prince: 2x size (140), shrinks to frog size (110) during transform
       const drawH = tp > 0 ? 140 - tp * 30 : 140;
       const drawW = drawH * (frame.sw / frame.sh);
-      // Feet position: prince ~90% from top, transitions to frog ~70%
-      const footFrac = tp > 0 ? 0.90 - tp * 0.20 : 0.90;
+      // Feet position: prince ~82% from top, transitions to frog ~70%
+      const footFrac = tp > 0 ? 0.82 - tp * 0.12 : 0.82;
       const footY = prince.y + prince.height;
       const drawY = footY - drawH * footFrac + bob;
       const drawX = prince.x - drawW / 2;
@@ -1671,13 +1671,6 @@ const Renderer = {
 
   drawHUD(ctx, level, lives, canvas) {
     ctx.save();
-
-    // Level text
-    ctx.font = '20px Georgia';
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillText('Level ' + level, 11, 31);
-    ctx.fillStyle = 'white';
-    ctx.fillText('Level ' + level, 10, 30);
 
     // Lives as hearts
     const heartImg = Assets.get('particle-heart');
