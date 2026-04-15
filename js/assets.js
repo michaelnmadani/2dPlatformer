@@ -35,6 +35,16 @@ const Assets = {
       'prince-idle':       'assets/prince-idle.png',
       'prince-transform':  'assets/prince-transform.png',
       'frog-sprites':      'assets/frog-sprites.png',
+      // Frog clothing variants (levels 2-10)
+      'frog-clothes-2':    'assets/frog-clothes-2.png',
+      'frog-clothes-3':    'assets/frog-clothes-3.png',
+      'frog-clothes-4':    'assets/frog-clothes-4.png',
+      'frog-clothes-5':    'assets/frog-clothes-5.png',
+      'frog-clothes-6':    'assets/frog-clothes-6.png',
+      'frog-clothes-7':    'assets/frog-clothes-7.png',
+      'frog-clothes-8':    'assets/frog-clothes-8.png',
+      'frog-clothes-9':    'assets/frog-clothes-9.png',
+      'frog-clothes-10':   'assets/frog-clothes-10.png',
       // Dragonfly
       'dragonfly-sprites': 'assets/dragonfly-sprites.png',
       // Particles

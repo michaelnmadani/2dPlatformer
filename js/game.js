@@ -610,7 +610,7 @@ const Game = {
 
         // Frog
         if (this.frog) {
-            Renderer.drawFrog(ctx, this.frog);
+            Renderer.drawFrog(ctx, this.frog, this.currentLevel);
             Renderer.drawFrogClothing(ctx, this.frog, this.currentLevel);
         }
 

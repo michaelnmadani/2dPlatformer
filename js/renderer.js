@@ -1089,7 +1089,7 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawFrog(ctx, frog, time) {
+  drawFrog(ctx, frog, level) {
     ctx.save();
 
     const jumping = frog.vy < 0;
@@ -1102,7 +1102,16 @@ const Renderer = {
     else if (falling) frameIndex = 3;
     else if (Math.abs(frog.vx || 0) > 0.5) frameIndex = 1;
 
-    const frame = Assets.getSpriteFrame('frog-sprites', frameIndex, 4);
+    // Use clothing sprite if available for this level, otherwise base sprite
+    let spriteKey = 'frog-sprites';
+    if (level >= 2) {
+      const clothesKey = 'frog-clothes-' + Math.min(level, 10);
+      if (Assets.get(clothesKey)) {
+        spriteKey = clothesKey;
+      }
+    }
+
+    const frame = Assets.getSpriteFrame(spriteKey, frameIndex, 4);
     if (frame) {
       const drawH = 110;
       const drawW = drawH * (frame.sw / frame.sh);
@@ -1246,6 +1255,14 @@ const Renderer = {
   },
 
   drawFrogClothing(ctx, frog, level, time) {
+    // Skip procedural clothing if clothing sprite is loaded for this level
+    if (level >= 2) {
+      const clothesKey = 'frog-clothes-' + Math.min(level, 10);
+      if (Assets.get(clothesKey)) {
+        return;
+      }
+    }
+
     ctx.save();
     ctx.translate(frog.x, frog.y);
     if (frog.facing === -1) {
