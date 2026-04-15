@@ -485,6 +485,9 @@ const Game = {
     startKissCutscene() {
         this.state = 'KISS_CUTSCENE';
         this.kissProgress = 0;
+        if (this.prince && this.prince.startTransform) {
+            this.prince.startTransform();
+        }
         Audio.kiss();
     },
 
@@ -571,7 +574,7 @@ const Game = {
                 this._renderPlayingScene(ctx, canvas);
                 Renderer.drawKissCutscene(
                     ctx, canvas, this.frog, this.prince,
-                    this.kissProgress, this.time
+                    this.kissProgress, this.time, this.currentLevel
                 );
                 break;
 

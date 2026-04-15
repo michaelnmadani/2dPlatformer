@@ -1464,8 +1464,8 @@ const Renderer = {
       // Transform: pick frame based on transform progress (0→1 maps to frames 0→3)
       frameIndex = Math.min(3, Math.floor(tp * 4));
     } else {
-      // Idle: cycle through 4 frames
-      frameIndex = Math.floor((time * 0.003) % 4);
+      // Idle: gentle breathing cycle through 4 frames (~5s per cycle)
+      frameIndex = Math.floor((time * 0.0008) % 4);
     }
     const frame = Assets.getSpriteFrame(sheetKey, frameIndex, 4);
 
@@ -1996,7 +1996,7 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawKissCutscene(ctx, canvas, frog, prince, progress, time) {
+  drawKissCutscene(ctx, canvas, frog, prince, progress, time, level) {
     ctx.save();
 
     // Dark overlay for scene
@@ -2012,14 +2012,14 @@ const Renderer = {
       const t = progress / 0.3;
       const interpX = frogStartX + (princeX - frogStartX - 40) * t;
       const fakeFrog = Object.assign({}, frog, { x: interpX });
-      this.drawFrog(ctx, fakeFrog, time);
+      this.drawFrog(ctx, fakeFrog, level);
       this.drawPrince(ctx, prince, time);
     }
 
     // Phase 2: Heart particles (0.3-0.5)
     if (progress > 0.3 && progress <= 0.5) {
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, time);
+      this.drawFrog(ctx, closeFrog, level);
       this.drawPrince(ctx, prince, time);
 
       const t = (progress - 0.3) / 0.2;
@@ -2036,7 +2036,7 @@ const Renderer = {
       const t = (progress - 0.5) / 0.3;
       const transformPrince = Object.assign({}, prince, { transformProgress: t });
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, time);
+      this.drawFrog(ctx, closeFrog, level);
       this.drawPrince(ctx, transformPrince, time);
 
       // White flash
@@ -2048,16 +2048,18 @@ const Renderer = {
     // Phase 4: Both as frogs, text (0.8-1.0)
     if (progress > 0.8) {
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, time);
+      this.drawFrog(ctx, closeFrog, level);
 
-      // Draw prince as a frog
+      // Draw prince as a frog (use base frog sprite, no clothing)
       const princeFrog = {
         x: prince.x,
         y: prince.y,
+        width: 30,
+        height: 28,
         facing: -1,
         vy: 0
       };
-      this.drawFrog(ctx, princeFrog, time);
+      this.drawFrog(ctx, princeFrog, 1);
 
       // Text
       ctx.textAlign = 'center';
