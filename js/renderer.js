@@ -1833,6 +1833,7 @@ const Renderer = {
     const startY = 90;
     const buttons = [];
 
+    ctx.textAlign = 'center';
     for (let i = 0; i < 10; i++) {
       const row = Math.floor(i / cols);
       const col = i % cols;
