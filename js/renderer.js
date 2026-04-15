@@ -1818,11 +1818,22 @@ const Renderer = {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Header
-    ctx.textAlign = 'center';
+    // Header — draw each word separately for secret unlock hitboxes
     ctx.font = 'bold 32px Georgia';
     ctx.fillStyle = 'white';
-    ctx.fillText('Select a Level', canvas.width / 2, 50);
+    const words = ['Select', 'a', 'Level'];
+    const wordGap = 10;
+    const wordWidths = words.map(w => ctx.measureText(w).width);
+    const totalTextW = wordWidths.reduce((s, w) => s + w, 0) + wordGap * (words.length - 1);
+    let wx = (canvas.width - totalTextW) / 2;
+    const wy = 50;
+    const wordHitboxes = [];
+    for (let i = 0; i < words.length; i++) {
+      ctx.textAlign = 'left';
+      ctx.fillText(words[i], wx, wy);
+      wordHitboxes.push({ x: wx, y: wy - 28, w: wordWidths[i], h: 36, index: i });
+      wx += wordWidths[i] + wordGap;
+    }
 
     const btnW = 120;
     const btnH = 80;
@@ -1885,11 +1896,33 @@ const Renderer = {
       }
     }
 
+    // "The End" button — only visible when all 10 levels unlocked
+    var endBtn = null;
+    if (unlockedLevel >= 10) {
+      const ebW = 120;
+      const ebH = 40;
+      const ebX = (canvas.width - ebW) / 2;
+      const ebY = startY + 2 * (btnH + gap) + 5;
+
+      ctx.fillStyle = '#6a4a0a';
+      ctx.fillRect(ebX, ebY, ebW, ebH);
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(ebX, ebY, ebW, ebH);
+
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 16px Georgia';
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText('The End', ebX + ebW / 2, ebY + 26);
+
+      endBtn = { x: ebX, y: ebY, w: ebW, h: ebH };
+    }
+
     // Mode toggle
     const toggleW = 200;
     const toggleH = 40;
     const toggleX = (canvas.width - toggleW) / 2;
-    const toggleY = startY + 2 * (btnH + gap) + 20;
+    const toggleY = startY + 2 * (btnH + gap) + (unlockedLevel >= 10 ? 55 : 20);
 
     // Toggle background
     ctx.fillStyle = hardcoreMode ? '#6a2222' : '#2a4a6a';
@@ -1933,7 +1966,12 @@ const Renderer = {
 
     ctx.textAlign = 'left';
     ctx.restore();
-    return { buttons: buttons, toggle: { x: toggleX, y: toggleY, w: toggleW, h: toggleH } };
+    return {
+      buttons: buttons,
+      toggle: { x: toggleX, y: toggleY, w: toggleW, h: toggleH },
+      words: wordHitboxes,
+      endBtn: endBtn
+    };
   },
 
   drawLevelComplete(ctx, canvas, level, clothingName, time) {

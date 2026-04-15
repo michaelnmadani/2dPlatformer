@@ -15,6 +15,7 @@ const Game = {
     lives: 5,
     maxLives: 5,
     hardcoreMode: false,
+    _secretStep: 0,
     frog: null,
     prince: null,
     lilypads: [],
@@ -206,6 +207,35 @@ const Game = {
                 break;
 
             case 'LEVEL_SELECT':
+                // Check secret word clicks: "Select" → "a" → "Level"
+                if (this._wordHitboxes) {
+                    for (const wh of this._wordHitboxes) {
+                        if (mx >= wh.x && mx <= wh.x + wh.w &&
+                            my >= wh.y && my <= wh.y + wh.h) {
+                            if (wh.index === this._secretStep) {
+                                this._secretStep++;
+                                if (this._secretStep >= 3) {
+                                    this.unlockedLevel = 10;
+                                    localStorage.setItem('frogPrince_unlocked', '10');
+                                    this._secretStep = 0;
+                                    Audio.levelComplete();
+                                }
+                            } else {
+                                this._secretStep = 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+                // Check "The End" button
+                if (this._endBtn &&
+                    mx >= this._endBtn.x && mx <= this._endBtn.x + this._endBtn.w &&
+                    my >= this._endBtn.y && my <= this._endBtn.y + this._endBtn.h) {
+                    Audio.click();
+                    this.state = 'FINAL_COMPLETE';
+                    this.finalStartTime = this.time;
+                    break;
+                }
                 // Check mode toggle click
                 if (this._modeToggle &&
                     mx >= this._modeToggle.x && mx <= this._modeToggle.x + this._modeToggle.w &&
@@ -558,6 +588,8 @@ const Game = {
                 );
                 this.levelButtons = lsResult.buttons;
                 this._modeToggle = lsResult.toggle;
+                this._wordHitboxes = lsResult.words;
+                this._endBtn = lsResult.endBtn;
                 break;
 
             case 'PLAYING':
