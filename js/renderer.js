@@ -1785,17 +1785,6 @@ const Renderer = {
       ctx.beginPath(); ctx.arc(frogX + 6, frogY - 8, 1.5, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Prince sprite on right side
-    const princeFrame = Assets.getSpriteFrame('prince-idle', Math.floor((time * 0.003) % 4), 4);
-    if (princeFrame) {
-      const ph = 55;
-      const pw = ph * (princeFrame.sw / princeFrame.sh);
-      ctx.globalAlpha = 0.7;
-      ctx.drawImage(princeFrame.img, princeFrame.sx, princeFrame.sy, princeFrame.sw, princeFrame.sh,
-        W * 0.78 - pw / 2, frogY - ph + 15, pw, ph);
-      ctx.globalAlpha = 1;
-    }
-
     // Blinking start text
     const alpha = (Math.sin(time * 0.003) + 1) / 2;
     ctx.globalAlpha = 0.3 + alpha * 0.7;
