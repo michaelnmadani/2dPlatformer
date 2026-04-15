@@ -1470,13 +1470,18 @@ const Renderer = {
     const frame = Assets.getSpriteFrame(sheetKey, frameIndex, 4);
 
     if (frame) {
-      // Draw sprite centered on prince position
-      const drawH = 70;
+      // Prince: 2x size (140), shrinks to frog size (110) during transform
+      const drawH = tp > 0 ? 140 - tp * 30 : 140;
       const drawW = drawH * (frame.sw / frame.sh);
+      // Feet position: prince ~90% from top, transitions to frog ~70%
+      const footFrac = tp > 0 ? 0.90 - tp * 0.20 : 0.90;
+      const footY = prince.y + prince.height;
+      const drawY = footY - drawH * footFrac + bob;
+      const drawX = prince.x - drawW / 2;
       ctx.drawImage(
         frame.img,
         frame.sx, frame.sy, frame.sw, frame.sh,
-        prince.x - drawW / 2, prince.y - drawH + 20 + bob, drawW, drawH
+        drawX, drawY, drawW, drawH
       );
     } else {
       // Fallback: procedural prince
