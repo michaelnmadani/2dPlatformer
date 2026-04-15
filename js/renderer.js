@@ -2060,18 +2060,6 @@ const Renderer = {
         vy: 0
       };
       this.drawFrog(ctx, princeFrog, 1);
-
-      // Text
-      ctx.textAlign = 'center';
-      const t = (progress - 0.8) / 0.2;
-      ctx.globalAlpha = Math.min(t * 2, 1);
-      ctx.font = 'bold 36px Georgia';
-      ctx.fillStyle = '#FFD700';
-      ctx.shadowColor = 'rgba(255,215,0,0.6)';
-      ctx.shadowBlur = 15;
-      ctx.fillText("True Love's Kiss!", canvas.width / 2, canvas.height * 0.25);
-      ctx.shadowBlur = 0;
-      ctx.textAlign = 'left';
     }
 
     ctx.restore();

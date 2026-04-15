@@ -515,6 +515,7 @@ const Game = {
             Audio.levelComplete();
             if (this.currentLevel >= 10) {
                 this.state = 'FINAL_COMPLETE';
+                this.finalStartTime = this.time;
             } else {
                 this.state = 'LEVEL_COMPLETE';
                 // Unlock next level
@@ -626,16 +627,20 @@ const Game = {
     },
 
     _renderFinalComplete(ctx, canvas) {
+        const W = canvas.width;
+        const H = canvas.height;
+        const elapsed = this.time - (this.finalStartTime || 0);
+
         // Dark celebratory background
         ctx.fillStyle = '#0a0025';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, W, H);
 
         // Sparkle effects
         const sparkleCount = 30;
         for (let i = 0; i < sparkleCount; i++) {
             const phase = this.time * 0.001 + i * 1.37;
-            const sx = (Math.sin(phase * 0.7 + i) * 0.5 + 0.5) * canvas.width;
-            const sy = (Math.cos(phase * 0.5 + i * 0.8) * 0.5 + 0.5) * canvas.height;
+            const sx = (Math.sin(phase * 0.7 + i) * 0.5 + 0.5) * W;
+            const sy = (Math.cos(phase * 0.5 + i * 0.8) * 0.5 + 0.5) * H;
             const size = Math.sin(phase * 2) * 2 + 3;
             const alpha = Math.sin(phase * 1.5) * 0.4 + 0.6;
 
@@ -648,28 +653,69 @@ const Game = {
             ctx.restore();
         }
 
-        // Title
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 64px serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('The End!', canvas.width / 2, 140);
+        // Center positions for frog and prince
+        const centerY = H * 0.55;
+        const frogCenterX = W / 2 - 60;
+        const princeCenterX = W / 2 + 60;
 
-        // Messages
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '28px serif';
-        ctx.fillText('All princes have been transformed!', canvas.width / 2, 240);
+        // Transform progress: starts after 1.5s, completes over 4s
+        const transformDelay = 1500;
+        const transformDuration = 4000;
+        const tp = Math.max(0, Math.min(1, (elapsed - transformDelay) / transformDuration));
 
-        ctx.fillStyle = '#88ff88';
-        ctx.font = 'bold 32px serif';
-        ctx.fillText('The Frog King reigns supreme!', canvas.width / 2, 310);
+        // Draw frog (with level 10 clothing) centered
+        const frogObj = {
+            x: frogCenterX,
+            y: centerY - 14,
+            width: 30,
+            height: 28,
+            facing: 1,
+            vy: 0
+        };
+        Renderer.drawFrog(ctx, frogObj, 10);
+
+        // Draw prince transforming into frog
+        const princeObj = {
+            x: princeCenterX,
+            y: centerY - 22,
+            width: 30,
+            height: 45,
+            transformProgress: tp,
+            facing: -1
+        };
+        Renderer.drawPrince(ctx, princeObj, this.time);
+
+        // Heart particles between them during transform
+        if (tp > 0 && tp < 1) {
+            const midX = (frogCenterX + princeCenterX) / 2;
+            for (let i = 0; i < 5; i++) {
+                const hx = midX + Math.sin(i * 1.8 + this.time * 0.004) * 15;
+                const hy = centerY - 40 - i * 12 - Math.sin(this.time * 0.003 + i) * 5;
+                const ha = Math.sin(this.time * 0.005 + i * 1.2) * 0.3 + 0.7;
+                Renderer.drawParticle(ctx, { type: 'heart', x: hx, y: hy, size: 6, life: ha });
+            }
+        }
+
+        // Title — fades in after transform completes
+        const titleAlpha = tp >= 1 ? Math.min(1, (elapsed - transformDelay - transformDuration) / 1000) : 0;
+        if (titleAlpha > 0) {
+            ctx.save();
+            ctx.globalAlpha = titleAlpha;
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 64px serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('The End!', W / 2, H * 0.18);
+            ctx.restore();
+        }
 
         // Hint to continue
         const blink = Math.sin(this.time * 0.004) * 0.4 + 0.6;
         ctx.globalAlpha = blink;
         ctx.fillStyle = '#aaaaaa';
         ctx.font = '18px sans-serif';
-        ctx.fillText('Click to return to title', canvas.width / 2, 420);
+        ctx.textAlign = 'center';
+        ctx.fillText('Click to return to title', W / 2, H * 0.9);
         ctx.globalAlpha = 1.0;
     },
 
