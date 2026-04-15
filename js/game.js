@@ -605,7 +605,7 @@ const Game = {
 
         // Prince
         if (this.prince) {
-            Renderer.drawPrince(ctx, this.prince);
+            Renderer.drawPrince(ctx, this.prince, this.time);
         }
 
         // Frog
