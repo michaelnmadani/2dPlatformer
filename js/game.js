@@ -54,8 +54,12 @@ const Game = {
 
     init() {
         this.canvas = document.getElementById('gameCanvas');
-        this.canvas.width = 800;
-        this.canvas.height = 500;
+        // Render at device resolution (capped at 2x) for crisp sprites;
+        // all game logic works in the 800x500 logical view
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.view = { width: 800, height: 500 };
+        this.canvas.width = this.view.width * this.dpr;
+        this.canvas.height = this.view.height * this.dpr;
         this.ctx = this.canvas.getContext('2d');
 
         // Load assets first, then start game
@@ -218,9 +222,9 @@ const Game = {
         // letterboxed inside the element — map clicks to the content box,
         // not the element box
         const rect = this.canvas.getBoundingClientRect();
-        const scale = Math.min(rect.width / this.canvas.width, rect.height / this.canvas.height);
-        const offX = rect.left + (rect.width - this.canvas.width * scale) / 2;
-        const offY = rect.top + (rect.height - this.canvas.height * scale) / 2;
+        const scale = Math.min(rect.width / this.view.width, rect.height / this.view.height);
+        const offX = rect.left + (rect.width - this.view.width * scale) / 2;
+        const offY = rect.top + (rect.height - this.view.height * scale) / 2;
         const mx = (e.clientX - offX) / scale;
         const my = (e.clientY - offY) / scale;
 
@@ -514,7 +518,7 @@ const Game = {
         this.particles = this.particles.filter((p) => p.active);
 
         // --- Out-of-bounds check ---
-        if (frog.y > this.canvas.height + 50 || frog.x < this.cameraX - 50) {
+        if (frog.y > this.view.height + 50 || frog.x < this.cameraX - 50) {
             this.death();
             return;
         }
@@ -617,8 +621,11 @@ const Game = {
 
     render() {
         const ctx = this.ctx;
-        const canvas = this.canvas;
+        // All drawing happens in the 800x500 logical view, scaled up to
+        // the device-resolution backing store
+        const canvas = this.view;
 
+        ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         switch (this.state) {
