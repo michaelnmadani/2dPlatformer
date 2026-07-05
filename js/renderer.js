@@ -855,7 +855,9 @@ const Renderer = {
     const bob = this._getWaterBob(worldX, time);
     const tilt = Math.sin(worldX * 0.015 + time * 0.0018) * 0.04;
 
-    const cx = pad.x + (pad.offsetX || 0);
+    // Physics treats pad.x as the LEFT edge of the platform, so center
+    // the ellipse at x + width/2 to match the collision box
+    const cx = pad.x + (pad.width || 60) / 2 + (pad.offsetX || 0);
     const cy = pad.y + (pad.offsetY || 0) + bob;
     const rx = (pad.width || 60) / 2;
     const ry = 10;
@@ -1112,22 +1114,23 @@ const Renderer = {
     }
 
     const frame = Assets.getSpriteFrame(spriteKey, frameIndex, 4);
+    // Hitbox spans [frog.x, frog.x + width] — center the sprite on it
+    const frogCX = frog.x + (frog.width || 30) / 2;
     if (frame) {
       const drawH = 110;
       const drawW = drawH * (frame.sw / frame.sh);
       // Align so frog feet (~70% down in sprite) sit at hitbox bottom (frog.y + height)
       const footY = frog.y + frog.height;
       const drawY = footY - drawH * 0.70;
-      const drawX = frog.x - drawW / 2;
       ctx.save();
       if (frog.facing === -1) {
-        ctx.translate(frog.x, 0);
+        ctx.translate(frogCX, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
           -drawW / 2, drawY, drawW, drawH);
       } else {
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          drawX, drawY, drawW, drawH);
+          frogCX - drawW / 2, drawY, drawW, drawH);
       }
       ctx.restore();
       ctx.restore();
@@ -1135,7 +1138,7 @@ const Renderer = {
     }
 
     // Fallback: procedural frog
-    ctx.translate(frog.x, frog.y);
+    ctx.translate(frogCX, frog.y);
     if (frog.facing === -1) {
       ctx.scale(-1, 1);
     }
@@ -1264,7 +1267,7 @@ const Renderer = {
     }
 
     ctx.save();
-    ctx.translate(frog.x, frog.y);
+    ctx.translate(frog.x + (frog.width || 30) / 2, frog.y);
     if (frog.facing === -1) {
       ctx.scale(-1, 1);
     }
@@ -1477,7 +1480,8 @@ const Renderer = {
       const footFrac = tp > 0 ? 0.82 - tp * 0.12 : 0.82;
       const footY = prince.y + prince.height;
       const drawY = footY - drawH * footFrac + bob;
-      const drawX = prince.x - drawW / 2;
+      // Center on the hitbox [prince.x, prince.x + width]
+      const drawX = prince.x + (prince.width || 30) / 2 - drawW / 2;
       ctx.drawImage(
         frame.img,
         frame.sx, frame.sy, frame.sw, frame.sh,
@@ -1485,7 +1489,7 @@ const Renderer = {
       );
     } else {
       // Fallback: procedural prince
-      ctx.translate(prince.x, prince.y);
+      ctx.translate(prince.x + (prince.width || 30) / 2, prince.y);
       ctx.translate(0, bob);
       const bodyHeight = 30 * (1 - tp * 0.5);
       const bodyWidth = 16 * (1 + tp * 0.3);
@@ -1533,20 +1537,22 @@ const Renderer = {
     const frameIndex = flapCycle[Math.floor(t / 100) % 4];
 
     const frame = Assets.getSpriteFrame('dragonfly-sprites', frameIndex, 4);
+    // Center visuals on the hitbox [df.x, df.x + width] x [df.y, df.y + height]
+    const dfCX = df.x + (df.width || 20) / 2;
+    const dfCY = df.y + (df.height || 15) / 2;
     if (frame) {
       const drawH = 45;
       const drawW = drawH * (frame.sw / frame.sh);
-      const drawX = df.x - drawW / 2;
-      const drawY = df.y - drawH / 2;
+      const drawY = dfCY - drawH / 2;
       ctx.save();
       if (df.direction === -1) {
-        ctx.translate(df.x, 0);
+        ctx.translate(dfCX, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
           -drawW / 2, drawY, drawW, drawH);
       } else {
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          drawX, drawY, drawW, drawH);
+          dfCX - drawW / 2, drawY, drawW, drawH);
       }
       ctx.restore();
       ctx.restore();
@@ -1554,7 +1560,7 @@ const Renderer = {
     }
 
     // Fallback: procedural dragonfly
-    ctx.translate(df.x, df.y);
+    ctx.translate(dfCX, dfCY);
 
     const flapAngle = Math.sin((time || Date.now()) * 0.01) * 0.5;
 
@@ -1671,6 +1677,14 @@ const Renderer = {
 
   drawHUD(ctx, level, lives, canvas) {
     ctx.save();
+
+    // Current level (top-left)
+    ctx.font = 'bold 18px Georgia';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillText('Level ' + level, 16, 29);
+    ctx.fillStyle = 'white';
+    ctx.fillText('Level ' + level, 15, 28);
 
     // Lives as hearts
     const heartImg = Assets.get('particle-heart');
@@ -2069,12 +2083,17 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawKissCutscene(ctx, canvas, frog, prince, progress, time, level) {
+  drawKissCutscene(ctx, canvas, frog, prince, progress, time, level, cameraX) {
     ctx.save();
 
-    // Dark overlay for scene
+    // Dark overlay for scene (screen space)
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Frog/prince/heart positions are world coordinates — apply the
+    // camera transform or the whole cutscene renders off-screen
+    ctx.save();
+    ctx.translate(-(cameraX || 0), 0);
 
     const frogStartX = frog.x;
     const princeX = prince.x;
@@ -2112,10 +2131,10 @@ const Renderer = {
       this.drawFrog(ctx, closeFrog, level);
       this.drawPrince(ctx, transformPrince, time);
 
-      // White flash
+      // White flash (offset by cameraX since we're in world space here)
       const flashAlpha = t < 0.33 ? t * 3 * 0.6 : (1 - (t - 0.33) / 0.67) * 0.6;
       ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(cameraX || 0, 0, canvas.width, canvas.height);
     }
 
     // Phase 4: Both as frogs, text (0.8-1.0)
@@ -2135,6 +2154,7 @@ const Renderer = {
       this.drawFrog(ctx, princeFrog, 1);
     }
 
+    ctx.restore(); // camera transform
     ctx.restore();
   }
 
