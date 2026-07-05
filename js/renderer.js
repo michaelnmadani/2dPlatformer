@@ -1091,11 +1091,31 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawFrog(ctx, frog, level) {
+  drawFrog(ctx, frog, level, time) {
     ctx.save();
+    time = time || 0;
 
     const jumping = frog.vy < 0;
     const falling = frog.vy > 0;
+
+    // Squash & stretch for liveliness
+    let sqX = 1, sqY = 1;
+    const sinceLand = (frog.landTime && time) ? time - frog.landTime : Infinity;
+    if (sinceLand >= 0 && sinceLand < 180) {
+      // Landing squash, easing back to normal over 180ms
+      const k = 1 - sinceLand / 180;
+      sqY = 1 - 0.16 * k;
+      sqX = 1 + 0.12 * k;
+    } else if (frog.vy < -4) {
+      // Fast ascent: stretch
+      sqY = 1.07;
+      sqX = 0.94;
+    } else if (frog.onGround && Math.abs(frog.vx || 0) <= 0.5) {
+      // Idle breathing
+      const b = Math.sin(time * 0.004) * 0.018;
+      sqY = 1 + b;
+      sqX = 1 - b * 0.6;
+    }
 
     // Try sprite-based rendering
     // Frames: 0=idle, 1=crouch, 2=jump, 3=fall
@@ -1119,19 +1139,14 @@ const Renderer = {
     if (frame) {
       const drawH = 110;
       const drawW = drawH * (frame.sw / frame.sh);
-      // Align so frog feet (~70% down in sprite) sit at hitbox bottom (frog.y + height)
+      // Anchor at the feet (~70% down in sprite, at hitbox bottom) so
+      // squash/stretch keeps the frog planted on the pad
       const footY = frog.y + frog.height;
-      const drawY = footY - drawH * 0.70;
       ctx.save();
-      if (frog.facing === -1) {
-        ctx.translate(frogCX, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          -drawW / 2, drawY, drawW, drawH);
-      } else {
-        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          frogCX - drawW / 2, drawY, drawW, drawH);
-      }
+      ctx.translate(frogCX, footY);
+      ctx.scale((frog.facing === -1 ? -1 : 1) * sqX, sqY);
+      ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
+        -drawW / 2, -drawH * 0.70, drawW, drawH);
       ctx.restore();
       ctx.restore();
       return;
@@ -2104,14 +2119,14 @@ const Renderer = {
       const t = progress / 0.3;
       const interpX = frogStartX + (princeX - frogStartX - 40) * t;
       const fakeFrog = Object.assign({}, frog, { x: interpX });
-      this.drawFrog(ctx, fakeFrog, level);
+      this.drawFrog(ctx, fakeFrog, level, time);
       this.drawPrince(ctx, prince, time);
     }
 
     // Phase 2: Heart particles (0.3-0.5)
     if (progress > 0.3 && progress <= 0.5) {
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, level);
+      this.drawFrog(ctx, closeFrog, level, time);
       this.drawPrince(ctx, prince, time);
 
       const t = (progress - 0.3) / 0.2;
@@ -2128,7 +2143,7 @@ const Renderer = {
       const t = (progress - 0.5) / 0.3;
       const transformPrince = Object.assign({}, prince, { transformProgress: t });
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, level);
+      this.drawFrog(ctx, closeFrog, level, time);
       this.drawPrince(ctx, transformPrince, time);
 
       // White flash (offset by cameraX since we're in world space here)
@@ -2140,7 +2155,7 @@ const Renderer = {
     // Phase 4: Both as frogs, text (0.8-1.0)
     if (progress > 0.8) {
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, level);
+      this.drawFrog(ctx, closeFrog, level, time);
 
       // Draw prince as a frog (use base frog sprite, no clothing)
       const princeFrog = {
@@ -2151,7 +2166,7 @@ const Renderer = {
         facing: -1,
         vy: 0
       };
-      this.drawFrog(ctx, princeFrog, 1);
+      this.drawFrog(ctx, princeFrog, 1, time);
     }
 
     ctx.restore(); // camera transform

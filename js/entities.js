@@ -204,9 +204,9 @@ function createParticle(x, y, type) {
   decay = 0.02;
 
   if (type === 'splash') {
-    vx = (Math.random() - 0.5) * 4;
-    vy = -(Math.random() * 3 + 1);
-    size = 4;
+    vx = (Math.random() - 0.5) * 6;
+    vy = -(Math.random() * 4.5 + 1);
+    size = 2 + Math.random() * 3.5;
   } else if (type === 'heart') {
     vx = (Math.random() - 0.5) * 0.5;
     vy = -(Math.random() * 0.5 + 0.5);

@@ -439,6 +439,7 @@ const Game = {
             frog.jumping = false;
             if (!wasOnGround) {
                 Audio.land();
+                frog.landTime = this.time; // landing squash animation
             }
             if (result.platform) {
                 // Carry the frog along with moving pads
@@ -529,9 +530,9 @@ const Game = {
 
         // Spawn splash particles
         if (this.frog) {
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 16; i++) {
                 this.particles.push(
-                    createParticle(this.frog.x, this.frog.y, 'splash')
+                    createParticle(this.frog.x + 15, this.frog.y + 20, 'splash')
                 );
             }
         }
@@ -703,7 +704,7 @@ const Game = {
 
         // Frog
         if (this.frog && !skipActors) {
-            Renderer.drawFrog(ctx, this.frog, this.currentLevel);
+            Renderer.drawFrog(ctx, this.frog, this.currentLevel, this.time);
             Renderer.drawFrogClothing(ctx, this.frog, this.currentLevel, this.time);
         }
 
