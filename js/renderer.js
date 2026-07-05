@@ -846,8 +846,13 @@ const Renderer = {
     ctx.save();
     time = time || 0;
 
-    if (pad.opacity !== undefined && pad.opacity < 1) {
-      ctx.globalAlpha = pad.opacity;
+    let padAlpha = (pad.opacity !== undefined) ? pad.opacity : 1;
+    if (pad.type === 'disappearing') {
+      // Ghostly pulse telegraphs that this pad won't stay solid
+      padAlpha *= 0.82 + Math.sin(time * 0.005 + pad.x * 0.05) * 0.12;
+    }
+    if (padAlpha < 1) {
+      ctx.globalAlpha = padAlpha;
     }
 
     // Calculate water bob — lilypad gently moves with the water
@@ -941,6 +946,64 @@ const Renderer = {
       );
       ctx.fillStyle = 'rgba(80,60,30,0.08)';
       ctx.fill();
+    }
+
+    // Rim light along the upper edge (ties pads to the painted lighting)
+    ctx.beginPath();
+    ctx.ellipse(0, -1, rx * 0.92, ry * 0.8, 0, Math.PI * 1.05, Math.PI * 1.95);
+    ctx.strokeStyle = 'rgba(210,255,200,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // --- Hazard telegraphing by pad type ---
+    if (pad.type === 'sinking') {
+      // Waterlogged: darker wash + water pooling on the surface
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, shape.notchStart, Math.PI * 2 - shape.notchEnd);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(20,50,90,0.22)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(rx * 0.1, ry * 0.15, rx * 0.45, ry * 0.4, 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(90,150,200,0.30)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(rx * 0.04, ry * 0.05, rx * 0.2, ry * 0.16, 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(170,215,245,0.30)';
+      ctx.fill();
+    } else if (pad.type === 'disappearing') {
+      // Pale wash + shimmering dashed rim
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, shape.notchStart, Math.PI * 2 - shape.notchEnd);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(220,240,255,0.14)';
+      ctx.fill();
+      const shimmer = 0.35 + Math.sin(time * 0.008 + worldX) * 0.2;
+      ctx.strokeStyle = 'rgba(200,235,255,' + shimmer + ')';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 7]);
+      ctx.lineDashOffset = -time * 0.02;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 0.9, ry * 0.85, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (pad.type === 'moving') {
+      // Wake ripples trailing opposite the drift direction
+      const vel = (pad.offsetX || 0) - (pad.prevOffsetX || 0);
+      if (Math.abs(vel) > 0.15) {
+        const dir = vel > 0 ? -1 : 1;
+        ctx.strokeStyle = 'rgba(180,220,240,0.28)';
+        ctx.lineWidth = 1;
+        for (let wk = 0; wk < 3; wk++) {
+          const wxo = dir * (rx + 4 + wk * 6);
+          ctx.beginPath();
+          ctx.moveTo(wxo, -ry * 0.55 - wk);
+          ctx.quadraticCurveTo(wxo + dir * 3.5, 1, wxo, ry * 0.55 + wk);
+          ctx.stroke();
+        }
+      }
     }
 
     // Flower (5 types)
