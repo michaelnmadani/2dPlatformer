@@ -32,6 +32,13 @@
             font-family: Georgia, serif;
             text-align: center;
         }
+        #loading img {
+            display: block;
+            width: 300px;
+            max-width: 80vw;
+            margin: 0 auto 20px;
+            filter: drop-shadow(0 0 18px rgba(50, 170, 30, 0.45));
+        }
         #loading .bar-outer {
             width: 200px;
             height: 8px;
@@ -50,7 +57,7 @@
     </style>
 </head>
 <body>
-    <div id="loading">Loading...<div class="bar-outer"><div class="bar-inner" id="loadBar"></div></div></div>
+    <div id="loading"><img src="assets/title-logo.png" alt="Frog Prince">Loading...<div class="bar-outer"><div class="bar-inner" id="loadBar"></div></div></div>
     <canvas id="gameCanvas"></canvas>
     <script src="js/assets.js"></script>
     <script src="js/audio.js"></script>
