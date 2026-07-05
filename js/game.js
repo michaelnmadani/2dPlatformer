@@ -684,7 +684,7 @@ const Game = {
 
     _renderPlayingScene(ctx, canvas, skipActors) {
         // Water background
-        Renderer.drawWater(ctx, canvas, this.time, this.cameraX, this.sceneId);
+        Renderer.drawWater(ctx, canvas, this.time, this.cameraX, this.sceneId, this.levelWidth);
 
         ctx.save();
         ctx.translate(-this.cameraX, 0);
@@ -721,6 +721,9 @@ const Game = {
         }
 
         ctx.restore();
+
+        // Foreground depth layer (reeds scrolling faster than the camera)
+        Renderer.drawForeground(ctx, canvas, this.time, this.cameraX);
     },
 
     _renderFinalComplete(ctx, canvas) {

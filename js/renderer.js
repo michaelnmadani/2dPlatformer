@@ -7,7 +7,7 @@ const Renderer = {
   },
 
 
-  drawWater(ctx, canvas, time, cameraX, sceneId) {
+  drawWater(ctx, canvas, time, cameraX, sceneId, levelWidth) {
     ctx.save();
     cameraX = cameraX || 0;
     sceneId = (sceneId !== undefined) ? sceneId : 0;
@@ -34,7 +34,13 @@ const Renderer = {
     // --- Draw background image or fallback to procedural sky ---
     const bgImg = Assets.getSceneBg(sceneId);
     if (bgImg) {
-      ctx.drawImage(bgImg, 0, 0, W, H);
+      // Subtle parallax: overscan the art 15% (uniform scale, centered
+      // vertically) and pan it as the camera crosses the level
+      const over = W * 0.15;
+      const range = Math.max(1, (levelWidth || W) - W);
+      const shift = Math.max(0, Math.min(1, cameraX / range)) * over;
+      const s = (W + over) / W;
+      ctx.drawImage(bgImg, -shift, -(H * (s - 1)) / 2, W * s, H * s);
     } else {
       // Fallback: procedural sky gradient
       const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
@@ -503,14 +509,19 @@ const Renderer = {
     }
 
     // ===== SCENE-SPECIFIC WATER EFFECTS =====
-    // Sunset sun pillar reflection
+    // Sunset sun pillar reflection — soft-edged ellipse so no hard
+    // rectangle seams show against the painted water
     if (sceneId === 3) {
-      const pillarGrad = ctx.createLinearGradient(0, waterTop, 0, waterTop + 80);
-      pillarGrad.addColorStop(0, 'rgba(255,180,80,0.15)');
+      ctx.save();
+      ctx.translate(W * 0.5, waterTop + 30);
+      ctx.scale(0.55, 1);
+      const pillarGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, 55);
+      pillarGrad.addColorStop(0, 'rgba(255,180,80,0.16)');
       pillarGrad.addColorStop(0.5, 'rgba(255,150,60,0.08)');
       pillarGrad.addColorStop(1, 'rgba(255,120,40,0)');
       ctx.fillStyle = pillarGrad;
-      ctx.fillRect(W * 0.45, waterTop, W * 0.1, 80);
+      ctx.fillRect(-80, -55, 160, 110);
+      ctx.restore();
     }
     // Aurora reflection on water
     if (sceneId === 6) {
@@ -620,6 +631,60 @@ const Renderer = {
     ctx.fillStyle = depthGrad;
     ctx.fillRect(0, H - 60, W, 60);
 
+    ctx.restore();
+  },
+
+  // Near-bank grass tufts drawn in front of the action, scrolling
+  // faster than the camera for depth. Kept short, fanned, and soft so
+  // they read as vegetation rather than stray lines.
+  drawForeground(ctx, canvas, time, cameraX) {
+    const W = canvas.width;
+    const H = canvas.height;
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    const span = 2200; // repeat distance in foreground space
+    for (let i = 0; i < 7; i++) {
+      const base = i * 431 + (i * i * 137) % 260;
+      const sx = ((base - cameraX * 1.3) % span + span) % span - 80;
+      if (sx > W + 80) continue;
+
+      // Tuft of blades fanning out from a root below the screen edge
+      const blades = 4 + (i % 3);
+      const tuftH = 42 + ((i * 47) % 38);
+      for (let b = 0; b < blades; b++) {
+        const lean = (b - (blades - 1) / 2) * 0.55 + Math.sin(i * 2.7 + b * 1.9) * 0.2;
+        const h = tuftH * (0.55 + ((b * 73 + i * 29) % 46) / 100);
+        const sway = Math.sin(time * 0.0011 + i * 7.3 + b * 1.3) * 3;
+        const rootX = sx + b * 3 - blades * 1.5;
+        ctx.strokeStyle = 'rgba(8,22,20,0.5)';
+        ctx.lineWidth = 2 + ((b + i) % 3) * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(rootX, H + 6);
+        ctx.quadraticCurveTo(
+          rootX + lean * h * 0.15, H - h * 0.5,
+          rootX + lean * h * 0.45 + sway, H + 4 - h
+        );
+        ctx.stroke();
+      }
+
+      // Cattail rising from every third tuft
+      if (i % 3 === 0) {
+        const ch = tuftH + 18;
+        const sway = Math.sin(time * 0.0011 + i * 7.3) * 3;
+        const cx = sx + 2;
+        ctx.strokeStyle = 'rgba(8,22,20,0.5)';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(cx, H + 6);
+        ctx.quadraticCurveTo(cx + sway * 0.3, H - ch * 0.5, cx + sway, H - ch);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(10,26,24,0.55)';
+        ctx.beginPath();
+        ctx.roundRect(cx + sway - 2.5, H - ch - 13, 5, 14, 2.5);
+        ctx.fill();
+      }
+    }
     ctx.restore();
   },
 
