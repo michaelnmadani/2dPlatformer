@@ -53,6 +53,27 @@ const Game = {
     mouse: null,        // pointer position in view coordinates (hover)
     levelStartTime: 0,  // for the level intro banner
     hitTime: 0,         // when a heart was last lost (HUD pop)
+    // Clock: `time` is the game clock (frozen while paused); the
+    // simulation advances in fixed 60 Hz steps regardless of display rate
+    paused: false,
+    realTime: 0,
+    stepTime: 0,
+    _lastTs: 0,
+    _acc: 0,
+    // Forgiving jumps
+    coyote: 0,          // frames after leaving a pad when a jump still works
+    jumpBuffer: 0,      // frames a jump press is remembered before landing
+    _jumpWas: false,
+    windGrace: 0,       // calm frames after a (re)spawn
+    // Collectibles, timer, checkpoint
+    flies: [],
+    fliesGot: 0,
+    levelTime: 0,
+    checkpoint: null,
+    checkpointTime: -99999,
+    lastResult: null,
+    records: { stars: [], best: [] },
+    touchUI: false,     // show on-screen buttons once a touch is seen
 
     // -------------------------------------------------------
     // Initialization
@@ -81,6 +102,19 @@ const Game = {
             if (saved) {
                 this.unlockedLevel = parseInt(saved, 10) || 1;
             }
+            try {
+                const rec = JSON.parse(localStorage.getItem('frogPrinceFable52_records') || 'null');
+                if (rec && Array.isArray(rec.stars) && Array.isArray(rec.best)) this.records = rec;
+            } catch (e) {}
+
+            // Browsers only allow sound after a user gesture
+            for (const ev of ['keydown', 'mousedown', 'touchstart']) {
+                window.addEventListener(ev, () => Audio.unlock(), { passive: true });
+            }
+            // Pause when the tab is hidden
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && this.state === 'PLAYING') this.paused = true;
+            });
 
             // Keyboard
             this._setupKeyboard();
@@ -129,15 +163,31 @@ const Game = {
                 this.keys[mapped] = true;
             }
 
-            // State transitions on key press
-            if (e.key === 'Escape') {
-                if (this.state === 'PLAYING' || this.state === 'GAME_OVER') {
+            if (e.repeat) return;
+            const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+            if (k === 'm') {
+                Audio.toggleMute();
+            }
+            // Pause / resume
+            if (k === 'Escape' || k === 'p') {
+                if (this.state === 'PLAYING') {
+                    this.paused = !this.paused;
+                    Audio.click();
+                } else if (this.state === 'GAME_OVER' && k === 'Escape') {
                     this.showLevelSelect();
                 }
+                return;
             }
-            // Ignore auto-repeat so a held jump key can't skip
-            // GAME_OVER / LEVEL_COMPLETE screens instantly
-            if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
+            if (this.state === 'PLAYING' && this.paused) {
+                if (k === 'q') {
+                    this.showLevelSelect();
+                } else if (k === ' ' || k === 'Enter') {
+                    this.paused = false;
+                }
+                return;
+            }
+            if (e.key === ' ' || e.key === 'Enter') {
                 if (this.state === 'TITLE') {
                     Audio.click();
                     this.showLevelSelect();
@@ -171,54 +221,53 @@ const Game = {
         });
     },
 
+    // Which on-screen control (if any) a view-space point is on
+    _touchZone(p) {
+        if (p.y < 250) return null;
+        if (p.x < 110) return 'left';
+        if (p.x < 230) return 'right';
+        if (p.x > 560) return 'jump';
+        return null;
+    },
+
+    _hit(p, r) {
+        return r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+    },
+
     _setupTouch() {
+        // Recompute held controls from every finger still down
+        const sync = (e) => {
+            this.touchLeft = this.touchRight = this.touchJump = false;
+            if (this.state !== 'PLAYING' || this.paused) return;
+            for (const t of e.touches) {
+                const zone = this._touchZone(this._toView(t));
+                if (zone === 'left') this.touchLeft = true;
+                else if (zone === 'right') this.touchRight = true;
+                else if (zone === 'jump') this.touchJump = true;
+            }
+        };
+
         this.canvas.addEventListener('touchstart', (e) => {
-            // Outside gameplay, let the browser fire the synthetic click
-            // so menus stay tappable on touch devices
-            if (this.state !== 'PLAYING') return;
+            this.touchUI = true;
+            // In menus (and the pause menu), let the browser fire the
+            // synthetic click so buttons stay tappable
+            if (this.state !== 'PLAYING' || this.paused) { sync(e); return; }
             e.preventDefault();
-            for (const touch of e.changedTouches) {
-                const rect = this.canvas.getBoundingClientRect();
-                const x = touch.clientX - rect.left;
-                const third = rect.width / 3;
-
-                if (x < third) {
-                    this.touchLeft = true;
-                } else if (x > third * 2) {
-                    this.touchRight = true;
-                }
-                // Any tap also triggers jump
-                this.touchJump = true;
+            for (const t of e.changedTouches) {
+                const p = this._toView(t);
+                if (this._hit(p, Renderer.HUD_BTNS.pause)) this.paused = true;
+                else if (this._hit(p, Renderer.HUD_BTNS.mute)) Audio.toggleMute();
             }
+            sync(e);
         }, { passive: false });
 
-        this.canvas.addEventListener('touchend', (e) => {
-            if (this.state !== 'PLAYING') {
-                this.touchLeft = false;
-                this.touchRight = false;
-                this.touchJump = false;
-                return;
-            }
-            e.preventDefault();
-            for (const touch of e.changedTouches) {
-                const rect = this.canvas.getBoundingClientRect();
-                const x = touch.clientX - rect.left;
-                const third = rect.width / 3;
-
-                if (x < third) {
-                    this.touchLeft = false;
-                } else if (x > third * 2) {
-                    this.touchRight = false;
-                }
-                this.touchJump = false;
-            }
-        }, { passive: false });
-
-        this.canvas.addEventListener('touchcancel', (e) => {
-            this.touchLeft = false;
-            this.touchRight = false;
-            this.touchJump = false;
-        });
+        const onMoveEnd = (e) => {
+            if (this.state === 'PLAYING' && !this.paused) e.preventDefault();
+            sync(e);
+        };
+        this.canvas.addEventListener('touchmove', onMoveEnd, { passive: false });
+        this.canvas.addEventListener('touchend', onMoveEnd, { passive: false });
+        this.canvas.addEventListener('touchcancel', sync);
     },
 
     // -------------------------------------------------------
@@ -245,6 +294,21 @@ const Game = {
             case 'TITLE':
                 Audio.click();
                 this.showLevelSelect();
+                break;
+
+            case 'PLAYING':
+                if (this.paused) {
+                    const pb = this._pauseBtns || {};
+                    if (this._hit(pos, pb.resume)) { Audio.click(); this.paused = false; }
+                    else if (this._hit(pos, pb.select)) { Audio.click(); this.showLevelSelect(); }
+                    else if (this._hit(pos, pb.sound)) { Audio.toggleMute(); Audio.click(); }
+                } else if (this._hit(pos, Renderer.HUD_BTNS.pause)) {
+                    Audio.click();
+                    this.paused = true;
+                } else if (this._hit(pos, Renderer.HUD_BTNS.mute)) {
+                    Audio.toggleMute();
+                    Audio.click();
+                }
                 break;
 
             case 'LEVEL_SELECT':
@@ -276,6 +340,7 @@ const Game = {
                     this.state = 'FINAL_COMPLETE';
                     this.finalStartTime = this.time;
                     this.fade = 1;
+                    Audio.setScene(9);
                     break;
                 }
                 // Check mode toggle click
@@ -332,14 +397,80 @@ const Game = {
     // State transitions
     // -------------------------------------------------------
 
+    // The link to the classic version is only offered on the title screen
+    _syncLink() {
+        const link = document.getElementById('versionLink');
+        if (link) link.style.display = this.state === 'TITLE' ? 'block' : 'none';
+    },
+
     showTitle() {
         this.state = 'TITLE';
+        this.paused = false;
         this.fade = 1;
+        Audio.setScene(0);
+        this._syncLink();
     },
 
     showLevelSelect() {
         this.state = 'LEVEL_SELECT';
+        this.paused = false;
         this.fade = 1;
+        Audio.setScene(0);
+        this._syncLink();
+    },
+
+    // Lilypads for a level; levels 6+ get a checkpoint on the static pad
+    // nearest the halfway point
+    _buildPads(config) {
+        const pads = (config.lilypads || []).map((padCfg) => createLilypad(padCfg));
+        if (config.level >= 6) {
+            const mid = (config.startX + config.prince.x) / 2;
+            let best = -1;
+            for (let i = 1; i < pads.length - 1; i++) {
+                if (pads[i].type !== 'static') continue;
+                if (best < 0 || Math.abs(pads[i].x - mid) < Math.abs(pads[best].x - mid)) best = i;
+            }
+            if (best >= 0) pads[best].checkpoint = true;
+        }
+        return pads;
+    },
+
+    // A golden fly hovers above every third pad
+    _buildFlies(config) {
+        const flies = [];
+        const pads = config.lilypads || [];
+        for (let i = 2; i < pads.length - 1; i += 3) {
+            flies.push({
+                x: pads[i].x + pads[i].width / 2,
+                y: pads[i].y - 72 - (Math.floor(i / 3) % 3) * 16,
+                phase: i,
+                got: false
+            });
+        }
+        return flies;
+    },
+
+    _saveRecords() {
+        try {
+            localStorage.setItem('frogPrinceFable52_records', JSON.stringify(this.records));
+        } catch (e) {}
+    },
+
+    // Score the run: 1 star for finishing, 2 for half the flies, 3 for all
+    _finishLevel() {
+        const total = this.flies.length;
+        const got = this.fliesGot;
+        const stars = 1 + (got * 2 >= total ? 1 : 0) + (got === total ? 1 : 0);
+        const i = this.currentLevel - 1;
+        const prev = this.records.best[i];
+        const newBest = !prev || this.levelTime < prev;
+        if (newBest) this.records.best[i] = Math.round(this.levelTime);
+        this.records.stars[i] = Math.max(this.records.stars[i] || 0, stars);
+        this._saveRecords();
+        this.lastResult = {
+            stars: stars, got: got, total: total,
+            time: this.levelTime, best: this.records.best[i], newBest: newBest
+        };
     },
 
     startLevel(num, fromCampaign) {
@@ -349,6 +480,16 @@ const Game = {
         this.shake = 0;
         this.levelStartTime = this.time;
         Fx.ripples = [];
+        this.paused = false;
+        this.coyote = 0;
+        this.jumpBuffer = 0;
+        this.windGrace = 120;
+        this.levelTime = 0;
+        this.fliesGot = 0;
+        this.checkpoint = null;
+        this.checkpointTime = -99999;
+        this.lastResult = null;
+        this._syncLink();
 
         if (fromCampaign) {
             // Campaign: keep current lives (don't reset)
@@ -366,8 +507,10 @@ const Game = {
         this.frog = createFrog(config.startX, config.startY);
         this.prince = createPrince(config.prince.x, config.prince.y);
 
-        this.lilypads = (config.lilypads || []).map((padCfg) => createLilypad(padCfg));
+        this.lilypads = this._buildPads(config);
+        this.flies = this._buildFlies(config);
         this.dragonflies = (config.dragonflies || []).map((df) => createDragonfly(df.x, df.y, df.patrolRange));
+        Audio.setScene(config.scene || 0);
 
         // Spawn fish across the level
         this.fish = [];
@@ -396,27 +539,13 @@ const Game = {
     // Update
     // -------------------------------------------------------
 
-    update(timestamp) {
-        this.time = timestamp;
-
-        switch (this.state) {
-            case 'TITLE':
-                // Idle animation handled by renderer
-                break;
-            case 'LEVEL_SELECT':
-                break;
-            case 'PLAYING':
-                this.updatePlaying();
-                break;
-            case 'GAME_OVER':
-                break;
-            case 'LEVEL_COMPLETE':
-                break;
-            case 'KISS_CUTSCENE':
-                this.updateKissCutscene();
-                break;
-            case 'FINAL_COMPLETE':
-                break;
+    // One fixed 60 Hz simulation step
+    step() {
+        if (this.shake > 0) this.shake--;
+        if (this.state === 'PLAYING') {
+            this.updatePlaying();
+        } else if (this.state === 'KISS_CUTSCENE') {
+            this.updateKissCutscene();
         }
     },
 
@@ -432,15 +561,25 @@ const Game = {
         if (wantsLeft) frog.moveLeft();
         if (wantsRight) frog.moveRight();
 
-        if (wantsJump) {
-            if (frog.onGround && !frog.jumping) {
-                frog.jump();
-                Audio.jump();
-                Fx.addRipple(frog.x + frog.width / 2, frog.y + frog.height + 4, 22);
-            } else if (frog.jumping) {
-                frog.holdJump();
-            }
+        // Forgiving jumps: a press is remembered for a few frames before
+        // landing (buffer), and still works just after leaving a pad (coyote)
+        if (wantsJump && !this._jumpWas) this.jumpBuffer = 7;
+        this._jumpWas = wantsJump;
+        if (frog.onGround) this.coyote = 6;
+        const canJump = !frog.jumping &&
+            ((frog.onGround && wantsJump) || (this.jumpBuffer > 0 && this.coyote > 0));
+        if (canJump) {
+            frog.jump(true);
+            this.coyote = 0;
+            this.jumpBuffer = 0;
+            Audio.jump();
+            Fx.addRipple(frog.x + frog.width / 2, frog.y + frog.height + 4, 22);
+        } else if (wantsJump && frog.jumping) {
+            frog.holdJump();
         }
+        if (this.coyote > 0) this.coyote--;
+        if (this.jumpBuffer > 0) this.jumpBuffer--;
+        this.levelTime += 1000 / 60;
 
         // --- Physics ---
         const wasOnGround = frog.onGround;
@@ -448,13 +587,13 @@ const Game = {
 
         // Update lilypads, dragonflies, and fish
         for (const pad of this.lilypads) {
-            pad.update(this.time);
+            pad.update(this.stepTime);
         }
         for (const df of this.dragonflies) {
             df.update();
         }
         for (const f of this.fish) {
-            f.update(this.time, this.levelWidth);
+            f.update(this.stepTime, this.levelWidth);
         }
 
         // Platform collision
@@ -476,13 +615,28 @@ const Game = {
                 if (result.platform.type === 'disappearing') {
                     result.platform.startDisappearing();
                 }
+                // Light the checkpoint lantern
+                if (result.platform.checkpoint && !this.checkpoint) {
+                    const cp = result.platform;
+                    this.checkpoint = { x: cp.x + cp.width / 2 - frog.width / 2, y: cp.y - 30 };
+                    this.checkpointTime = this.time;
+                    Audio.checkpoint();
+                    for (let i = 0; i < 10; i++) {
+                        this.particles.push(createParticle(cp.x + cp.width - 16, cp.y - 30, 'sparkle'));
+                    }
+                }
             }
         } else {
             frog.onGround = false;
         }
 
         // --- Wind ---
-        if (this.windConfig && this.windConfig.force > 0) {
+        if (this.windGrace > 0) {
+            // Calm spell after a (re)spawn so the first pad is safe
+            this.windGrace--;
+            this.windActive = false;
+            this.windForce = 0;
+        } else if (this.windConfig && this.windConfig.force > 0) {
             this.windTimer++;
             const interval = this.windConfig.interval || 300;
             const duration = this.windConfig.duration || 120;
@@ -519,6 +673,21 @@ const Game = {
             if (Physics.checkEntityCollision(frog, df)) {
                 this.death();
                 return;
+            }
+        }
+
+        // --- Golden flies ---
+        const fcx = frog.x + frog.width / 2, fcy = frog.y + frog.height / 2;
+        for (const fly of this.flies) {
+            if (fly.got) continue;
+            const dx = fcx - fly.x, dy = fcy - fly.y;
+            if (dx * dx + dy * dy < 28 * 28) {
+                fly.got = true;
+                this.fliesGot++;
+                Audio.collect();
+                for (let i = 0; i < 7; i++) {
+                    this.particles.push(createParticle(fly.x, fly.y, 'sparkle'));
+                }
             }
         }
 
@@ -586,16 +755,21 @@ const Game = {
             this.state = 'GAME_OVER';
             Audio.death();
         } else {
-            // Reset frog position
+            // Respawn at the checkpoint if its lantern is lit
             const config = Levels.get(this.currentLevel);
-            this.frog = createFrog(config.startX, config.startY);
+            this.frog = this.checkpoint
+                ? createFrog(this.checkpoint.x, this.checkpoint.y)
+                : createFrog(config.startX, config.startY);
+            this.coyote = 0;
+            this.jumpBuffer = 0;
 
             // Reset lilypads
-            this.lilypads = (config.lilypads || []).map((padCfg) => createLilypad(padCfg));
+            this.lilypads = this._buildPads(config);
 
-            // Reset wind
+            // Reset wind, with a calm spell
             this.windTimer = 0;
             this.windActive = false;
+            this.windGrace = 120;
 
             // The eased camera must snap back with the frog, or the
             // out-of-bounds check would fire while it glides home
@@ -610,6 +784,7 @@ const Game = {
     startKissCutscene() {
         this.state = 'KISS_CUTSCENE';
         this.kissProgress = 0;
+        this._finishLevel();
         // Snap the camera to the frog (the collision check runs before the
         // camera update, so it can be a frame behind)
         if (this.frog) {
@@ -646,6 +821,7 @@ const Game = {
             Audio.levelComplete();
             this.fade = 0.6;
             if (this.currentLevel >= 10) {
+                Audio.setScene(9);
                 this.state = 'FINAL_COMPLETE';
                 this.finalStartTime = this.time;
             } else {
@@ -656,7 +832,7 @@ const Game = {
                     this.unlockedLevel = nextLevel;
                     localStorage.setItem('frogPrinceFable52_unlocked', String(this.unlockedLevel));
                 }
-                Audio.unlock();
+                Audio.unlockLevel();
             }
         }
     },
@@ -682,7 +858,7 @@ const Game = {
             case 'LEVEL_SELECT':
                 var lsResult = Renderer.drawLevelSelect(
                     ctx, canvas, this.unlockedLevel, Levels.CLOTHING_NAMES, this.hardcoreMode,
-                    this.time, this.mouse
+                    this.time, this.mouse, this.records
                 );
                 this.levelButtons = lsResult.buttons;
                 this._modeToggle = lsResult.toggle;
@@ -698,11 +874,22 @@ const Game = {
                     maxLives: this.maxLives,
                     hitTime: this.hitTime,
                     startTime: this.levelStartTime,
-                    progress: (this.frog && this.prince)
-                        ? (this.frog.x - 105) / Math.max(1, this.prince.x - 105 - 30) : 0
+                    progress: this._progress(this.frog ? this.frog.x : 105),
+                    timer: this.levelTime,
+                    flies: { got: this.fliesGot, total: this.flies.length },
+                    checkpointFrac: this._checkpointFrac(),
+                    checkpointOn: !!this.checkpoint,
+                    checkpointTime: this.checkpointTime,
+                    muted: Audio.isMuted(),
+                    paused: this.paused,
+                    touchUI: this.touchUI,
+                    touch: { left: this.touchLeft, right: this.touchRight, jump: this.touchJump }
                 });
                 if (this.windActive) {
                     Renderer.drawWindIndicator(ctx, canvas, this.windForce, this.time);
+                }
+                if (this.paused) {
+                    this._pauseBtns = Renderer.drawPause(ctx, canvas, this.realTime, Audio.isMuted(), this.mouse);
                 }
                 break;
 
@@ -717,7 +904,7 @@ const Game = {
                 Renderer.drawLevelComplete(
                     ctx, canvas, this.currentLevel,
                     Levels.CLOTHING_NAMES[this.currentLevel] || Levels.CLOTHING_NAMES[9],
-                    this.time
+                    this.time, this.lastResult
                 );
                 break;
 
@@ -742,8 +929,19 @@ const Game = {
         if (this.fade > 0) {
             ctx.fillStyle = 'rgba(2,4,14,' + Math.min(1, this.fade) + ')';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            this.fade -= 0.04;
         }
+    },
+
+    _progress(x) {
+        if (!this.prince) return 0;
+        return (x - 105) / Math.max(1, this.prince.x - 105 - 30);
+    },
+
+    _checkpointFrac() {
+        for (const pad of this.lilypads) {
+            if (pad.checkpoint) return this._progress(pad.x + pad.width / 2 - 15);
+        }
+        return null;
     },
 
     _renderPlayingScene(ctx, canvas, skipActors) {
@@ -752,10 +950,9 @@ const Game = {
 
         // Screen shake (e.g. on a splash)
         ctx.save();
-        if (this.shake > 0) {
+        if (this.shake > 0 && !this.paused) {
             const mag = this.shake * 0.5;
             ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
-            this.shake--;
         }
 
         // Background art, water, sky effects
@@ -790,6 +987,16 @@ const Game = {
         // Lilypads
         for (const pad of this.lilypads) {
             Renderer.drawLilypad(ctx, pad, this.time);
+        }
+
+        // Checkpoint lantern
+        for (const pad of this.lilypads) {
+            if (pad.checkpoint) Fx.lantern(ctx, pad, this.time, !!this.checkpoint);
+        }
+
+        // Golden flies
+        for (const fly of this.flies) {
+            Fx.fly(ctx, fly, this.time);
         }
 
         // Dragonflies
@@ -929,7 +1136,24 @@ const Game = {
     // -------------------------------------------------------
 
     gameLoop(timestamp) {
-        this.update(timestamp);
+        const dt = Math.min(100, timestamp - (this._lastTs || timestamp));
+        this._lastTs = timestamp;
+        this.realTime = timestamp;
+
+        // Fixed-timestep simulation: identical speed on 60 Hz, 120 Hz
+        // or struggling devices. The game clock stops while paused.
+        if (!this.paused) {
+            const STEP = 1000 / 60;
+            this.time += dt;
+            this._acc += dt;
+            while (this._acc >= STEP) {
+                this._acc -= STEP;
+                this.stepTime = this.time - this._acc;
+                this.step();
+            }
+        }
+        if (this.fade > 0) this.fade -= dt / 400;
+
         this.render();
     }
 };

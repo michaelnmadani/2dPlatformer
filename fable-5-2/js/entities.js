@@ -28,8 +28,9 @@ function createFrog(x, y) {
       this.alive = true;
     },
 
-    jump: function () {
-      if (this.onGround) {
+    // `force` lets the game grant coyote-time jumps just after leaving a pad
+    jump: function (force) {
+      if (this.onGround || force) {
         this.vy = -13; // Physics.JUMP_FORCE
         this.jumping = true;
         this.jumpHoldTime = 0;

@@ -32,6 +32,16 @@
             cursor: pointer;
             touch-action: none;
         }
+        #versionLink {
+            display: none;
+            position: fixed;
+            left: 16px;
+            bottom: 12px;
+            color: rgba(255, 255, 255, 0.75);
+            font: italic 14px Georgia, serif;
+            text-decoration: underline;
+        }
+        #versionLink:hover { color: #ffd24a; }
         #loading {
             position: absolute;
             color: #ffd24a;
@@ -74,6 +84,7 @@
 <body>
     <div id="loading"><img src="assets/title-logo.png" alt="The Frog Prince"><div class="edition">FABLE 5.2</div>LOADING<div class="bar-outer"><div class="bar-inner" id="loadBar"></div></div></div>
     <canvas id="gameCanvas"></canvas>
+    <a id="versionLink" href="../">Play the classic version</a>
     <script>
         // Make sure the heading font is ready for canvas text
         if (document.fonts && document.fonts.load) document.fonts.load("700 16px Cinzel");

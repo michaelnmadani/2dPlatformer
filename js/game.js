@@ -318,12 +318,20 @@ const Game = {
     // State transitions
     // -------------------------------------------------------
 
+    // The link to the FABLE 5.2 edition is only offered on the title screen
+    _syncLink() {
+        const link = document.getElementById('versionLink');
+        if (link) link.style.display = this.state === 'TITLE' ? 'block' : 'none';
+    },
+
     showTitle() {
         this.state = 'TITLE';
+        this._syncLink();
     },
 
     showLevelSelect() {
         this.state = 'LEVEL_SELECT';
+        this._syncLink();
     },
 
     startLevel(num, fromCampaign) {

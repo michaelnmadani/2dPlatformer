@@ -26,6 +26,41 @@ Object.assign(Renderer, {
     ctx.fillRect(0, 0, W, H);
   },
 
+  // Tap/click targets under the hearts (view coordinates)
+  HUD_BTNS: {
+    pause: { x: 754, y: 52, w: 34, h: 34 },
+    mute:  { x: 714, y: 52, w: 34, h: 34 }
+  },
+
+  _fmtTime(ms) {
+    const t = Math.max(0, ms || 0) / 1000;
+    const m = Math.floor(t / 60);
+    const sec = t - m * 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(1);
+  },
+
+  _speaker(ctx, cx, cy, muted) {
+    ctx.save();
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - 8, cy - 3); ctx.lineTo(cx - 4, cy - 3); ctx.lineTo(cx + 1, cy - 7);
+    ctx.lineTo(cx + 1, cy + 7); ctx.lineTo(cx - 4, cy + 3); ctx.lineTo(cx - 8, cy + 3);
+    ctx.closePath(); ctx.fill();
+    if (muted) {
+      ctx.beginPath();
+      ctx.moveTo(cx + 4, cy - 4); ctx.lineTo(cx + 10, cy + 4);
+      ctx.moveTo(cx + 10, cy - 4); ctx.lineTo(cx + 4, cy + 4);
+      ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(cx + 2, cy, 5, -0.9, 0.9); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx + 2, cy, 9, -0.8, 0.8); ctx.stroke();
+    }
+    ctx.restore();
+  },
+
   _prompt(ctx, text, x, y, time, px) {
     ctx.save();
     ctx.globalAlpha = 0.55 + (Math.sin(time * 0.004) + 1) * 0.225;
@@ -120,9 +155,72 @@ Object.assign(Renderer, {
     ctx.lineTo(cx + 7, cy + 5); ctx.closePath();
     ctx.fill(); ctx.stroke();
 
+    // Checkpoint marker on the journey bar
+    if (o.checkpointFrac !== null && o.checkpointFrac !== undefined) {
+      const kx = tx + tw * Math.max(0, Math.min(1, o.checkpointFrac));
+      ctx.fillStyle = o.checkpointOn ? '#ffd86a' : 'rgba(255,255,255,0.55)';
+      ctx.strokeStyle = 'rgba(40,25,0,0.8)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(kx, ty - 3); ctx.lineTo(kx + 4, ty + 3); ctx.lineTo(kx, ty + 9); ctx.lineTo(kx - 4, ty + 3);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    // Timer and golden flies (under the journey bar)
+    Fx.panel(ctx, W / 2 - 68, 38, 136, 20, 10, 0.5);
+    ctx.font = '700 11px ' + Fx.FONT_HEAD;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    const hasFlies = o.flies && o.flies.total > 0;
+    ctx.textAlign = 'center';
+    ctx.fillText(this._fmtTime(o.timer), hasFlies ? W / 2 - 30 : W / 2, 52);
+    if (hasFlies) {
+      ctx.fillStyle = '#ffcf40';
+      ctx.strokeStyle = 'rgba(90,50,0,0.9)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(W / 2 + 12, 48, 4.5, 3.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = o.flies.got === o.flies.total ? '#ffd86a' : 'rgba(255,255,255,0.92)';
+      ctx.textAlign = 'left';
+      ctx.fillText(o.flies.got + ' / ' + o.flies.total, W / 2 + 22, 52);
+    }
+
+    // Pause and mute buttons
+    const pb = this.HUD_BTNS.pause, mb = this.HUD_BTNS.mute;
+    Fx.panel(ctx, pb.x, pb.y, pb.w, pb.h, 17);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(pb.x + 12, pb.y + 10, 3.5, 14);
+    ctx.fillRect(pb.x + 18.5, pb.y + 10, 3.5, 14);
+    Fx.panel(ctx, mb.x, mb.y, mb.w, mb.h, 17);
+    this._speaker(ctx, mb.x + 16, mb.y + 17, o.muted);
+
+    // On-screen controls for touch devices
+    if (o.touchUI) {
+      const tc = o.touch || {};
+      const btn = (cx, cy, r, on, draw) => {
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = on ? 'rgba(255,255,255,0.38)' : 'rgba(10,18,40,0.38)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath(); draw(); ctx.closePath(); ctx.fill();
+      };
+      btn(58, 440, 38, tc.left, () => { ctx.moveTo(44, 440); ctx.lineTo(66, 426); ctx.lineTo(66, 454); });
+      btn(168, 440, 38, tc.right, () => { ctx.moveTo(182, 440); ctx.lineTo(160, 426); ctx.lineTo(160, 454); });
+      btn(726, 430, 46, tc.jump, () => { ctx.moveTo(726, 412); ctx.lineTo(744, 440); ctx.lineTo(708, 440); });
+    }
+
+    // "Checkpoint!" flash
+    const ct = time - (o.checkpointTime === undefined ? -99999 : o.checkpointTime);
+    if (ct >= 0 && ct < 1700) {
+      ctx.globalAlpha = Math.min(1, ct / 200) * Math.min(1, (1700 - ct) / 400);
+      Fx.goldText(ctx, 'Checkpoint!', W / 2, 118, 26, 'center', 2);
+      ctx.globalAlpha = 1;
+    }
+
     // Level intro banner
     const t = o.startTime !== undefined ? time - o.startTime : Infinity;
-    if (t >= 0 && t < 2600) {
+    if (t >= 0 && t < 2600 && !o.paused) {
       const a = Math.min(1, t / 300) * Math.min(1, (2600 - t) / 500);
       const slide = (1 - Math.min(1, t / 400)) * 14;
       ctx.globalAlpha = a;
@@ -150,11 +248,11 @@ Object.assign(Renderer, {
     const dir = windForce > 0 ? 1 : -1;
     time = time || 0;
     ctx.save();
-    Fx.panel(ctx, W / 2 - 52, 44, 104, 22, 11, 0.5);
+    Fx.panel(ctx, W / 2 - 52, 64, 104, 22, 11, 0.5);
     ctx.font = '700 10px ' + Fx.FONT_HEAD;
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.fillText('WIND', W / 2 - 18 * dir, 59);
+    ctx.fillText('WIND', W / 2 - 18 * dir, 79);
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
@@ -164,10 +262,47 @@ Object.assign(Renderer, {
       const x = W / 2 + dir * (8 + ph * 30);
       ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.9;
       ctx.beginPath();
-      ctx.moveTo(x - dir * 4, 51); ctx.lineTo(x, 55); ctx.lineTo(x - dir * 4, 59);
+      ctx.moveTo(x - dir * 4, 71); ctx.lineTo(x, 75); ctx.lineTo(x - dir * 4, 79);
       ctx.stroke();
     }
     ctx.restore();
+  },
+
+  // Pause menu; returns its button rectangles for hit-testing
+  drawPause(ctx, view, time, muted, mouse) {
+    const W = view.width, H = view.height;
+    ctx.save();
+    ctx.fillStyle = 'rgba(3,6,20,0.6)';
+    ctx.fillRect(0, 0, W, H);
+    const pw = 430, ph = 290, px = (W - pw) / 2, py = (H - ph) / 2;
+    Fx.panel(ctx, px, py, pw, ph, 22, 0.78);
+    Fx.goldText(ctx, 'Paused', W / 2, py + 54, 34, 'center', 2);
+
+    const btns = {
+      resume: { x: W / 2 - 115, y: py + 80, w: 230, h: 40, label: 'Resume' },
+      select: { x: W / 2 - 115, y: py + 130, w: 230, h: 40, label: 'Level Select' },
+      sound:  { x: W / 2 - 115, y: py + 180, w: 230, h: 40, label: muted ? 'Sound: Off' : 'Sound: On' }
+    };
+    for (const key in btns) {
+      const b = btns[key];
+      const hover = mouse && mouse.x >= b.x && mouse.x <= b.x + b.w && mouse.y >= b.y && mouse.y <= b.y + b.h;
+      Fx.panel(ctx, b.x, b.y, b.w, b.h, 20, hover ? 0.3 : 0.55);
+      Fx.rr(ctx, b.x, b.y, b.w, b.h, 20);
+      ctx.strokeStyle = hover ? '#ffd24a' : 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.font = '700 15px ' + Fx.FONT_HEAD;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'white';
+      ctx.fillText(b.label, W / 2, b.y + 26);
+    }
+    ctx.font = '11.5px ' + Fx.FONT_BODY;
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.textAlign = 'center';
+    ctx.fillText('P / Esc resume   ·   Q level select   ·   M sound', W / 2, py + 252);
+    ctx.fillText('Move: arrows or A / D   ·   Jump: Space, W or Up (hold to go higher)', W / 2, py + 270);
+    ctx.restore();
+    return btns;
   },
 
   // -------------------------------------------------------------
@@ -251,7 +386,7 @@ Object.assign(Renderer, {
   // Level select
   // -------------------------------------------------------------
 
-  drawLevelSelect(ctx, view, unlockedLevel, clothingNames, hardcoreMode, time, mouse) {
+  drawLevelSelect(ctx, view, unlockedLevel, clothingNames, hardcoreMode, time, mouse, records) {
     const W = view.width;
     time = time || 0;
     ctx.save();
@@ -335,12 +470,18 @@ Object.assign(Renderer, {
         ctx.fillStyle = 'rgba(8,14,34,0.72)'; ctx.fill();
         ctx.strokeStyle = 'rgba(255,210,74,0.85)'; ctx.lineWidth = 1.2; ctx.stroke();
         Fx.goldText(ctx, '' + level, bx + 20, by + 25.5, 15);
-        // Completed check
-        if (level < unlockedLevel) {
-          ctx.strokeStyle = '#7dffa0'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-          ctx.beginPath();
-          ctx.moveTo(bx + cw - 24, by + 19); ctx.lineTo(bx + cw - 19, by + 24); ctx.lineTo(bx + cw - 11, by + 14);
-          ctx.stroke();
+        // Star rating and best time once the level has been beaten
+        const stars = records && records.stars ? (records.stars[i] || 0) : 0;
+        if (stars > 0) {
+          for (let k = 0; k < 3; k++) {
+            Fx.star5(ctx, bx + cw - 46 + k * 16, by + 19, 7.5, k < stars);
+          }
+          if (records.best && records.best[i]) {
+            ctx.font = '10.5px ' + Fx.FONT_BODY;
+            ctx.textAlign = 'right';
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            ctx.fillText(this._fmtTime(records.best[i]), bx + cw - 8, by + ch - 9);
+          }
         }
         ctx.textAlign = 'left';
         ctx.font = '700 11px ' + Fx.FONT_HEAD;
@@ -420,17 +561,17 @@ Object.assign(Renderer, {
   // Overlays (drawn over the dimmed level scene)
   // -------------------------------------------------------------
 
-  drawLevelComplete(ctx, view, level, clothingName, time) {
+  drawLevelComplete(ctx, view, level, clothingName, time, result) {
     const W = view.width, H = view.height;
     ctx.save();
     ctx.fillStyle = 'rgba(3,6,20,0.55)';
     ctx.fillRect(0, 0, W, H);
 
-    const pw = 440, ph = 330, px = (W - pw) / 2, py = 78;
+    const pw = 440, ph = 366, px = (W - pw) / 2, py = 62;
     Fx.panel(ctx, px, py, pw, ph, 22, 0.72);
 
     // Rotating rays + glow behind the frog
-    const fx = W / 2, fy = 262;
+    const fx = W / 2, fy = 282;
     ctx.save();
     Fx.rr(ctx, px, py, pw, ph, 22);
     ctx.clip();
@@ -448,7 +589,15 @@ Object.assign(Renderer, {
     }
     ctx.restore();
 
-    Fx.goldText(ctx, 'Level Complete!', W / 2, py + 52, 34, 'center', 1);
+    Fx.goldText(ctx, 'Level Complete!', W / 2, py + 50, 34, 'center', 1);
+
+    // Star rating pops in one star at a time
+    if (result) {
+      for (let k = 0; k < 3; k++) {
+        const pop = 1 + Math.max(0, Math.sin(time * 0.004 - k * 0.9)) * (k < result.stars ? 0.12 : 0);
+        Fx.star5(ctx, W / 2 + (k - 1) * 40, py + 84 - (k === 1 ? 4 : 0), 15 * pop, k < result.stars);
+      }
+    }
 
     // The frog showing off the new outfit
     const pad = { x: fx - 50, y: fy, width: 100, type: 'static', variant: 0, hasFlower: false, opacity: 1 };
@@ -478,8 +627,18 @@ Object.assign(Renderer, {
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.fillText('NEW OUTFIT UNLOCKED', W / 2, py + 262);
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
-    Fx.goldText(ctx, clothingName, W / 2, py + 290, 22);
-    this._prompt(ctx, 'SPACE to continue   ·   Click for level select', W / 2, py + 316, time, 13);
+    Fx.goldText(ctx, clothingName, W / 2, py + 289, 22);
+    if (result) {
+      ctx.font = '12.5px ' + Fx.FONT_BODY;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillText(
+        'Time ' + this._fmtTime(result.time) +
+        (result.newBest ? '  —  new best!' : '   ·   Best ' + this._fmtTime(result.best)) +
+        (result.total ? '   ·   Flies ' + result.got + ' / ' + result.total : ''),
+        W / 2, py + 314);
+    }
+    this._prompt(ctx, 'SPACE to continue   ·   Click for level select', W / 2, py + 344, time, 13);
 
     ctx.restore();
   },

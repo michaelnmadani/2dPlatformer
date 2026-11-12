@@ -159,6 +159,90 @@ const Fx = {
     ctx.restore();
   },
 
+  // Five-point star (ratings)
+  star5(ctx, x, y, r, filled) {
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const rr = i % 2 === 0 ? r : r * 0.45;
+      ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    if (filled) {
+      const g = ctx.createLinearGradient(0, y - r, 0, y + r);
+      g.addColorStop(0, '#fff3a8');
+      g.addColorStop(1, '#f0a81e');
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(90,50,0,0.85)';
+    } else {
+      ctx.fillStyle = 'rgba(8,14,34,0.55)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    }
+    ctx.lineWidth = Math.max(0.8, r * 0.12);
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  // Collectible golden fly
+  fly(ctx, fly, time) {
+    if (fly.got) return;
+    const x = fly.x + Math.sin(time * 0.003 + fly.phase) * 5;
+    const y = fly.y + Math.sin(time * 0.004 + fly.phase * 1.7) * 4;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    this.glow(ctx, x, y, 17, '255,215,110', 0.4 + Math.sin(time * 0.006 + fly.phase) * 0.12);
+    ctx.restore();
+    ctx.save();
+    const flap = Math.abs(Math.sin(time * 0.03 + fly.phase));
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(x + side * 4, y - 3 - flap * 2, 4.5, 2 + flap * 1.5, side * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffcf40';
+    ctx.strokeStyle = 'rgba(90,50,0,0.9)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 4.5, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  // Checkpoint lantern on its pad; glows once lit
+  lantern(ctx, pad, time, lit) {
+    const x = pad.x + pad.width - 14;
+    const y = pad.y + (pad.bobY || 0);
+    ctx.save();
+    ctx.strokeStyle = '#3b2a1a';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y - 36);
+    ctx.quadraticCurveTo(x, y - 42, x - 7, y - 41);
+    ctx.stroke();
+    const lx = x - 7, ly = y - 33;
+    if (lit) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      this.glow(ctx, lx, ly, 30, '255,205,100', 0.5 + Math.sin(time * 0.005) * 0.1);
+      ctx.restore();
+    }
+    this.rr(ctx, lx - 5, ly - 7, 10, 13, 3);
+    ctx.fillStyle = lit ? '#ffd86a' : 'rgba(120,130,150,0.85)';
+    ctx.fill();
+    ctx.strokeStyle = '#3b2a1a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  },
+
   // Soft contact shadow under a grounded frog
   shadow(ctx, frog) {
     if (!frog.onGround) return;
