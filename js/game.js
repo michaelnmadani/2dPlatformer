@@ -54,8 +54,12 @@ const Game = {
 
     init() {
         this.canvas = document.getElementById('gameCanvas');
-        this.canvas.width = 800;
-        this.canvas.height = 500;
+        // Render at device resolution (capped at 2x) for crisp sprites;
+        // all game logic works in the 800x500 logical view
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.view = { width: 800, height: 500 };
+        this.canvas.width = this.view.width * this.dpr;
+        this.canvas.height = this.view.height * this.dpr;
         this.ctx = this.canvas.getContext('2d');
 
         // Load assets first, then start game
@@ -100,10 +104,13 @@ const Game = {
         const keyMap = {
             'ArrowLeft': 'left',
             'a': 'left',
+            'A': 'left',
             'ArrowRight': 'right',
             'd': 'right',
+            'D': 'right',
             'ArrowUp': 'up',
             'w': 'up',
+            'W': 'up',
             ' ': 'space'
         };
 
@@ -120,8 +127,13 @@ const Game = {
                     this.showLevelSelect();
                 }
             }
-            if (e.key === ' ' || e.key === 'Enter') {
-                if (this.state === 'GAME_OVER') {
+            // Ignore auto-repeat so a held jump key can't skip
+            // GAME_OVER / LEVEL_COMPLETE screens instantly
+            if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
+                if (this.state === 'TITLE') {
+                    Audio.click();
+                    this.showLevelSelect();
+                } else if (this.state === 'GAME_OVER') {
                     if (this.campaignMode) {
                         // Campaign over: restart from level 1 with full hearts
                         this.lives = this.maxLives;
@@ -131,10 +143,13 @@ const Game = {
                     }
                 } else if (this.state === 'LEVEL_COMPLETE') {
                     if (this.currentLevel < 10) {
-                        this.startLevel(this.currentLevel + 1, true);
+                        this.startLevel(this.currentLevel + 1, this.campaignMode);
                     } else {
                         this.showLevelSelect();
                     }
+                } else if (this.state === 'FINAL_COMPLETE') {
+                    Audio.click();
+                    this.showTitle();
                 }
             }
         });
@@ -150,6 +165,9 @@ const Game = {
 
     _setupTouch() {
         this.canvas.addEventListener('touchstart', (e) => {
+            // Outside gameplay, let the browser fire the synthetic click
+            // so menus stay tappable on touch devices
+            if (this.state !== 'PLAYING') return;
             e.preventDefault();
             for (const touch of e.changedTouches) {
                 const rect = this.canvas.getBoundingClientRect();
@@ -167,6 +185,12 @@ const Game = {
         }, { passive: false });
 
         this.canvas.addEventListener('touchend', (e) => {
+            if (this.state !== 'PLAYING') {
+                this.touchLeft = false;
+                this.touchRight = false;
+                this.touchJump = false;
+                return;
+            }
             e.preventDefault();
             for (const touch of e.changedTouches) {
                 const rect = this.canvas.getBoundingClientRect();
@@ -194,11 +218,15 @@ const Game = {
     // -------------------------------------------------------
 
     _handleClick(e) {
+        // The canvas uses object-fit: contain, so the rendered content is
+        // letterboxed inside the element — map clicks to the content box,
+        // not the element box
         const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        const mx = (e.clientX - rect.left) * scaleX;
-        const my = (e.clientY - rect.top) * scaleY;
+        const scale = Math.min(rect.width / this.view.width, rect.height / this.view.height);
+        const offX = rect.left + (rect.width - this.view.width * scale) / 2;
+        const offY = rect.top + (rect.height - this.view.height * scale) / 2;
+        const mx = (e.clientX - offX) / scale;
+        const my = (e.clientY - offY) / scale;
 
         switch (this.state) {
             case 'TITLE':
@@ -251,6 +279,10 @@ const Game = {
                         btn.level <= this.unlockedLevel
                     ) {
                         Audio.click();
+                        // Starting from level select is always a fresh run
+                        // (hardcore passes fromCampaign=true, which would
+                        // otherwise carry over depleted lives)
+                        this.lives = this.maxLives;
                         this.startLevel(btn.level, this.hardcoreMode);
                         break;
                     }
@@ -286,12 +318,20 @@ const Game = {
     // State transitions
     // -------------------------------------------------------
 
+    // The link to the FABLE 5.2 edition is only offered on the title screen
+    _syncLink() {
+        const link = document.getElementById('versionLink');
+        if (link) link.style.display = this.state === 'TITLE' ? 'block' : 'none';
+    },
+
     showTitle() {
         this.state = 'TITLE';
+        this._syncLink();
     },
 
     showLevelSelect() {
         this.state = 'LEVEL_SELECT';
+        this._syncLink();
     },
 
     startLevel(num, fromCampaign) {
@@ -411,8 +451,11 @@ const Game = {
             frog.jumping = false;
             if (!wasOnGround) {
                 Audio.land();
+                frog.landTime = this.time; // landing squash animation
             }
             if (result.platform) {
+                // Carry the frog along with moving pads
+                frog.x += (result.platform.offsetX || 0) - (result.platform.prevOffsetX || 0);
                 if (result.platform.type === 'sinking') {
                     result.platform.startSinking();
                 }
@@ -435,6 +478,14 @@ const Game = {
                 this.windActive = true;
                 this.windForce = this.windConfig.force;
                 frog.vx += this.windConfig.force * 0.1;
+                // Streak particles so gusts are visible in the world
+                if (Math.random() < 0.25) {
+                    this.particles.push(createParticle(
+                        this.cameraX + Math.random() * 800,
+                        60 + Math.random() * 300,
+                        'wind'
+                    ));
+                }
             } else {
                 this.windActive = false;
                 this.windForce = 0;
@@ -475,7 +526,7 @@ const Game = {
         this.particles = this.particles.filter((p) => p.active);
 
         // --- Out-of-bounds check ---
-        if (frog.y > this.canvas.height + 50 || frog.x < this.cameraX - 50) {
+        if (frog.y > this.view.height + 50 || frog.x < this.cameraX - 50) {
             this.death();
             return;
         }
@@ -491,9 +542,9 @@ const Game = {
 
         // Spawn splash particles
         if (this.frog) {
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 16; i++) {
                 this.particles.push(
-                    createParticle(this.frog.x, this.frog.y, 'splash')
+                    createParticle(this.frog.x + 15, this.frog.y + 20, 'splash')
                 );
             }
         }
@@ -523,6 +574,11 @@ const Game = {
     startKissCutscene() {
         this.state = 'KISS_CUTSCENE';
         this.kissProgress = 0;
+        // Snap the camera to the frog (the collision check runs before the
+        // camera update, so it can be a frame behind)
+        if (this.frog) {
+            this.cameraX = Math.max(0, Math.min(this.frog.x - 300, this.levelWidth - 800));
+        }
         if (this.prince && this.prince.startTransform) {
             this.prince.startTransform();
         }
@@ -573,8 +629,11 @@ const Game = {
 
     render() {
         const ctx = this.ctx;
-        const canvas = this.canvas;
+        // All drawing happens in the 800x500 logical view, scaled up to
+        // the device-resolution backing store
+        const canvas = this.view;
 
+        ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         switch (this.state) {
@@ -606,18 +665,22 @@ const Game = {
                 break;
 
             case 'LEVEL_COMPLETE':
+                // Completing level N earns the outfit worn in level N+1
                 Renderer.drawLevelComplete(
                     ctx, canvas, this.currentLevel,
-                    Levels.CLOTHING_NAMES[this.currentLevel - 1],
+                    Levels.CLOTHING_NAMES[this.currentLevel] || Levels.CLOTHING_NAMES[9],
                     this.time
                 );
                 break;
 
             case 'KISS_CUTSCENE':
-                this._renderPlayingScene(ctx, canvas);
+                // Cutscene draws its own frog/prince, so skip them in the
+                // base scene to avoid frozen duplicates underneath
+                this._renderPlayingScene(ctx, canvas, true);
                 Renderer.drawKissCutscene(
                     ctx, canvas, this.frog, this.prince,
-                    this.kissProgress, this.time, this.currentLevel
+                    this.kissProgress, this.time, this.currentLevel,
+                    this.cameraX
                 );
                 break;
 
@@ -627,9 +690,9 @@ const Game = {
         }
     },
 
-    _renderPlayingScene(ctx, canvas) {
+    _renderPlayingScene(ctx, canvas, skipActors) {
         // Water background
-        Renderer.drawWater(ctx, canvas, this.time, this.cameraX, this.sceneId);
+        Renderer.drawWater(ctx, canvas, this.time, this.cameraX, this.sceneId, this.levelWidth);
 
         ctx.save();
         ctx.translate(-this.cameraX, 0);
@@ -650,14 +713,14 @@ const Game = {
         }
 
         // Prince
-        if (this.prince) {
+        if (this.prince && !skipActors) {
             Renderer.drawPrince(ctx, this.prince, this.time);
         }
 
         // Frog
-        if (this.frog) {
-            Renderer.drawFrog(ctx, this.frog, this.currentLevel);
-            Renderer.drawFrogClothing(ctx, this.frog, this.currentLevel);
+        if (this.frog && !skipActors) {
+            Renderer.drawFrog(ctx, this.frog, this.currentLevel, this.time);
+            Renderer.drawFrogClothing(ctx, this.frog, this.currentLevel, this.time);
         }
 
         // Particles
@@ -666,6 +729,9 @@ const Game = {
         }
 
         ctx.restore();
+
+        // Foreground depth layer (reeds scrolling faster than the camera)
+        Renderer.drawForeground(ctx, canvas, this.time, this.cameraX);
     },
 
     _renderFinalComplete(ctx, canvas) {

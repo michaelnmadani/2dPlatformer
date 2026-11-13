@@ -100,12 +100,16 @@ const Assets = {
   getSpriteFrame(key, frameIndex, totalFrames) {
     const img = this.images[key];
     if (!img) return null;
-    const fw = Math.floor(img.width / totalFrames);
+    // Exact fractional frame width — flooring drifts on sheets whose width
+    // isn't divisible by the frame count (e.g. 677px / 4 frames).
+    // Inset by half a pixel per side so scaled sampling never bleeds
+    // pixels from the neighboring frame.
+    const fw = img.width / totalFrames;
     return {
       img: img,
-      sx: frameIndex * fw,
+      sx: frameIndex * fw + 0.5,
       sy: 0,
-      sw: fw,
+      sw: fw - 1,
       sh: img.height
     };
   }

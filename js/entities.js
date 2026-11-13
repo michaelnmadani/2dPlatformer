@@ -100,8 +100,9 @@ function createLilypad(config) {
     active: true,
     offsetX: 0,
     offsetY: 0,
-    moveSpeed: 1,
-    moveRange: 60,
+    prevOffsetX: 0,
+    moveSpeed: config.moveSpeed || 1,
+    moveRange: config.moveRange || 60,
     moveStartX: x,
     sinkTimer: 0,
     sinkSpeed: 0.5,
@@ -116,6 +117,8 @@ function createLilypad(config) {
     variant: Math.floor(Math.random() * 10),
 
     update: function (time) {
+      this.prevOffsetX = this.offsetX;
+
       // Water bob — gentle up/down matching the water surface
       var worldX = this.x + (this.offsetX || 0);
       this.bobY = Math.sin(worldX * 0.02 + time * 0.002) * 3
@@ -160,6 +163,7 @@ function createLilypad(config) {
       this.active = true;
       this.offsetX = 0;
       this.offsetY = 0;
+      this.prevOffsetX = 0;
       this.opacity = 1;
       this.sinking = false;
       this.disappearing = false;
@@ -200,9 +204,9 @@ function createParticle(x, y, type) {
   decay = 0.02;
 
   if (type === 'splash') {
-    vx = (Math.random() - 0.5) * 4;
-    vy = -(Math.random() * 3 + 1);
-    size = 4;
+    vx = (Math.random() - 0.5) * 6;
+    vy = -(Math.random() * 4.5 + 1);
+    size = 2 + Math.random() * 3.5;
   } else if (type === 'heart') {
     vx = (Math.random() - 0.5) * 0.5;
     vy = -(Math.random() * 0.5 + 0.5);

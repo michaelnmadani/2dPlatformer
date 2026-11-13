@@ -6,6 +6,11 @@ const Audio = (() => {
         if (!ctx) {
             ctx = new (window.AudioContext || window.webkitAudioContext)();
         }
+        // Browsers start the context suspended until a user gesture;
+        // resume so sounds triggered by keyboard input can play
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
         return ctx;
     }
 

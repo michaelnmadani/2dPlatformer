@@ -7,7 +7,7 @@ const Renderer = {
   },
 
 
-  drawWater(ctx, canvas, time, cameraX, sceneId) {
+  drawWater(ctx, canvas, time, cameraX, sceneId, levelWidth) {
     ctx.save();
     cameraX = cameraX || 0;
     sceneId = (sceneId !== undefined) ? sceneId : 0;
@@ -34,7 +34,13 @@ const Renderer = {
     // --- Draw background image or fallback to procedural sky ---
     const bgImg = Assets.getSceneBg(sceneId);
     if (bgImg) {
-      ctx.drawImage(bgImg, 0, 0, W, H);
+      // Subtle parallax: overscan the art 15% (uniform scale, centered
+      // vertically) and pan it as the camera crosses the level
+      const over = W * 0.15;
+      const range = Math.max(1, (levelWidth || W) - W);
+      const shift = Math.max(0, Math.min(1, cameraX / range)) * over;
+      const s = (W + over) / W;
+      ctx.drawImage(bgImg, -shift, -(H * (s - 1)) / 2, W * s, H * s);
     } else {
       // Fallback: procedural sky gradient
       const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.65);
@@ -503,14 +509,19 @@ const Renderer = {
     }
 
     // ===== SCENE-SPECIFIC WATER EFFECTS =====
-    // Sunset sun pillar reflection
+    // Sunset sun pillar reflection — soft-edged ellipse so no hard
+    // rectangle seams show against the painted water
     if (sceneId === 3) {
-      const pillarGrad = ctx.createLinearGradient(0, waterTop, 0, waterTop + 80);
-      pillarGrad.addColorStop(0, 'rgba(255,180,80,0.15)');
+      ctx.save();
+      ctx.translate(W * 0.5, waterTop + 30);
+      ctx.scale(0.55, 1);
+      const pillarGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, 55);
+      pillarGrad.addColorStop(0, 'rgba(255,180,80,0.16)');
       pillarGrad.addColorStop(0.5, 'rgba(255,150,60,0.08)');
       pillarGrad.addColorStop(1, 'rgba(255,120,40,0)');
       ctx.fillStyle = pillarGrad;
-      ctx.fillRect(W * 0.45, waterTop, W * 0.1, 80);
+      ctx.fillRect(-80, -55, 160, 110);
+      ctx.restore();
     }
     // Aurora reflection on water
     if (sceneId === 6) {
@@ -620,6 +631,60 @@ const Renderer = {
     ctx.fillStyle = depthGrad;
     ctx.fillRect(0, H - 60, W, 60);
 
+    ctx.restore();
+  },
+
+  // Near-bank grass tufts drawn in front of the action, scrolling
+  // faster than the camera for depth. Kept short, fanned, and soft so
+  // they read as vegetation rather than stray lines.
+  drawForeground(ctx, canvas, time, cameraX) {
+    const W = canvas.width;
+    const H = canvas.height;
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    const span = 2200; // repeat distance in foreground space
+    for (let i = 0; i < 7; i++) {
+      const base = i * 431 + (i * i * 137) % 260;
+      const sx = ((base - cameraX * 1.3) % span + span) % span - 80;
+      if (sx > W + 80) continue;
+
+      // Tuft of blades fanning out from a root below the screen edge
+      const blades = 4 + (i % 3);
+      const tuftH = 42 + ((i * 47) % 38);
+      for (let b = 0; b < blades; b++) {
+        const lean = (b - (blades - 1) / 2) * 0.55 + Math.sin(i * 2.7 + b * 1.9) * 0.2;
+        const h = tuftH * (0.55 + ((b * 73 + i * 29) % 46) / 100);
+        const sway = Math.sin(time * 0.0011 + i * 7.3 + b * 1.3) * 3;
+        const rootX = sx + b * 3 - blades * 1.5;
+        ctx.strokeStyle = 'rgba(8,22,20,0.5)';
+        ctx.lineWidth = 2 + ((b + i) % 3) * 0.6;
+        ctx.beginPath();
+        ctx.moveTo(rootX, H + 6);
+        ctx.quadraticCurveTo(
+          rootX + lean * h * 0.15, H - h * 0.5,
+          rootX + lean * h * 0.45 + sway, H + 4 - h
+        );
+        ctx.stroke();
+      }
+
+      // Cattail rising from every third tuft
+      if (i % 3 === 0) {
+        const ch = tuftH + 18;
+        const sway = Math.sin(time * 0.0011 + i * 7.3) * 3;
+        const cx = sx + 2;
+        ctx.strokeStyle = 'rgba(8,22,20,0.5)';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(cx, H + 6);
+        ctx.quadraticCurveTo(cx + sway * 0.3, H - ch * 0.5, cx + sway, H - ch);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(10,26,24,0.55)';
+        ctx.beginPath();
+        ctx.roundRect(cx + sway - 2.5, H - ch - 13, 5, 14, 2.5);
+        ctx.fill();
+      }
+    }
     ctx.restore();
   },
 
@@ -846,8 +911,13 @@ const Renderer = {
     ctx.save();
     time = time || 0;
 
-    if (pad.opacity !== undefined && pad.opacity < 1) {
-      ctx.globalAlpha = pad.opacity;
+    let padAlpha = (pad.opacity !== undefined) ? pad.opacity : 1;
+    if (pad.type === 'disappearing') {
+      // Ghostly pulse telegraphs that this pad won't stay solid
+      padAlpha *= 0.82 + Math.sin(time * 0.005 + pad.x * 0.05) * 0.12;
+    }
+    if (padAlpha < 1) {
+      ctx.globalAlpha = padAlpha;
     }
 
     // Calculate water bob — lilypad gently moves with the water
@@ -855,7 +925,9 @@ const Renderer = {
     const bob = this._getWaterBob(worldX, time);
     const tilt = Math.sin(worldX * 0.015 + time * 0.0018) * 0.04;
 
-    const cx = pad.x + (pad.offsetX || 0);
+    // Physics treats pad.x as the LEFT edge of the platform, so center
+    // the ellipse at x + width/2 to match the collision box
+    const cx = pad.x + (pad.width || 60) / 2 + (pad.offsetX || 0);
     const cy = pad.y + (pad.offsetY || 0) + bob;
     const rx = (pad.width || 60) / 2;
     const ry = 10;
@@ -939,6 +1011,64 @@ const Renderer = {
       );
       ctx.fillStyle = 'rgba(80,60,30,0.08)';
       ctx.fill();
+    }
+
+    // Rim light along the upper edge (ties pads to the painted lighting)
+    ctx.beginPath();
+    ctx.ellipse(0, -1, rx * 0.92, ry * 0.8, 0, Math.PI * 1.05, Math.PI * 1.95);
+    ctx.strokeStyle = 'rgba(210,255,200,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // --- Hazard telegraphing by pad type ---
+    if (pad.type === 'sinking') {
+      // Waterlogged: darker wash + water pooling on the surface
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, shape.notchStart, Math.PI * 2 - shape.notchEnd);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(20,50,90,0.22)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(rx * 0.1, ry * 0.15, rx * 0.45, ry * 0.4, 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(90,150,200,0.30)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(rx * 0.04, ry * 0.05, rx * 0.2, ry * 0.16, 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(170,215,245,0.30)';
+      ctx.fill();
+    } else if (pad.type === 'disappearing') {
+      // Pale wash + shimmering dashed rim
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, shape.notchStart, Math.PI * 2 - shape.notchEnd);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(220,240,255,0.14)';
+      ctx.fill();
+      const shimmer = 0.35 + Math.sin(time * 0.008 + worldX) * 0.2;
+      ctx.strokeStyle = 'rgba(200,235,255,' + shimmer + ')';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 7]);
+      ctx.lineDashOffset = -time * 0.02;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 0.9, ry * 0.85, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (pad.type === 'moving') {
+      // Wake ripples trailing opposite the drift direction
+      const vel = (pad.offsetX || 0) - (pad.prevOffsetX || 0);
+      if (Math.abs(vel) > 0.15) {
+        const dir = vel > 0 ? -1 : 1;
+        ctx.strokeStyle = 'rgba(180,220,240,0.28)';
+        ctx.lineWidth = 1;
+        for (let wk = 0; wk < 3; wk++) {
+          const wxo = dir * (rx + 4 + wk * 6);
+          ctx.beginPath();
+          ctx.moveTo(wxo, -ry * 0.55 - wk);
+          ctx.quadraticCurveTo(wxo + dir * 3.5, 1, wxo, ry * 0.55 + wk);
+          ctx.stroke();
+        }
+      }
     }
 
     // Flower (5 types)
@@ -1089,11 +1219,31 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawFrog(ctx, frog, level) {
+  drawFrog(ctx, frog, level, time) {
     ctx.save();
+    time = time || 0;
 
     const jumping = frog.vy < 0;
     const falling = frog.vy > 0;
+
+    // Squash & stretch for liveliness
+    let sqX = 1, sqY = 1;
+    const sinceLand = (frog.landTime && time) ? time - frog.landTime : Infinity;
+    if (sinceLand >= 0 && sinceLand < 180) {
+      // Landing squash, easing back to normal over 180ms
+      const k = 1 - sinceLand / 180;
+      sqY = 1 - 0.16 * k;
+      sqX = 1 + 0.12 * k;
+    } else if (frog.vy < -4) {
+      // Fast ascent: stretch
+      sqY = 1.07;
+      sqX = 0.94;
+    } else if (frog.onGround && Math.abs(frog.vx || 0) <= 0.5) {
+      // Idle breathing
+      const b = Math.sin(time * 0.004) * 0.018;
+      sqY = 1 + b;
+      sqX = 1 - b * 0.6;
+    }
 
     // Try sprite-based rendering
     // Frames: 0=idle, 1=crouch, 2=jump, 3=fall
@@ -1112,30 +1262,26 @@ const Renderer = {
     }
 
     const frame = Assets.getSpriteFrame(spriteKey, frameIndex, 4);
+    // Hitbox spans [frog.x, frog.x + width] — center the sprite on it
+    const frogCX = frog.x + (frog.width || 30) / 2;
     if (frame) {
       const drawH = 110;
       const drawW = drawH * (frame.sw / frame.sh);
-      // Align so frog feet (~70% down in sprite) sit at hitbox bottom (frog.y + height)
+      // Anchor at the feet (~70% down in sprite, at hitbox bottom) so
+      // squash/stretch keeps the frog planted on the pad
       const footY = frog.y + frog.height;
-      const drawY = footY - drawH * 0.70;
-      const drawX = frog.x - drawW / 2;
       ctx.save();
-      if (frog.facing === -1) {
-        ctx.translate(frog.x, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          -drawW / 2, drawY, drawW, drawH);
-      } else {
-        ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          drawX, drawY, drawW, drawH);
-      }
+      ctx.translate(frogCX, footY);
+      ctx.scale((frog.facing === -1 ? -1 : 1) * sqX, sqY);
+      ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
+        -drawW / 2, -drawH * 0.70, drawW, drawH);
       ctx.restore();
       ctx.restore();
       return;
     }
 
     // Fallback: procedural frog
-    ctx.translate(frog.x, frog.y);
+    ctx.translate(frogCX, frog.y);
     if (frog.facing === -1) {
       ctx.scale(-1, 1);
     }
@@ -1264,7 +1410,7 @@ const Renderer = {
     }
 
     ctx.save();
-    ctx.translate(frog.x, frog.y);
+    ctx.translate(frog.x + (frog.width || 30) / 2, frog.y);
     if (frog.facing === -1) {
       ctx.scale(-1, 1);
     }
@@ -1477,7 +1623,8 @@ const Renderer = {
       const footFrac = tp > 0 ? 0.82 - tp * 0.12 : 0.82;
       const footY = prince.y + prince.height;
       const drawY = footY - drawH * footFrac + bob;
-      const drawX = prince.x - drawW / 2;
+      // Center on the hitbox [prince.x, prince.x + width]
+      const drawX = prince.x + (prince.width || 30) / 2 - drawW / 2;
       ctx.drawImage(
         frame.img,
         frame.sx, frame.sy, frame.sw, frame.sh,
@@ -1485,7 +1632,7 @@ const Renderer = {
       );
     } else {
       // Fallback: procedural prince
-      ctx.translate(prince.x, prince.y);
+      ctx.translate(prince.x + (prince.width || 30) / 2, prince.y);
       ctx.translate(0, bob);
       const bodyHeight = 30 * (1 - tp * 0.5);
       const bodyWidth = 16 * (1 + tp * 0.3);
@@ -1533,20 +1680,22 @@ const Renderer = {
     const frameIndex = flapCycle[Math.floor(t / 100) % 4];
 
     const frame = Assets.getSpriteFrame('dragonfly-sprites', frameIndex, 4);
+    // Center visuals on the hitbox [df.x, df.x + width] x [df.y, df.y + height]
+    const dfCX = df.x + (df.width || 20) / 2;
+    const dfCY = df.y + (df.height || 15) / 2;
     if (frame) {
       const drawH = 45;
       const drawW = drawH * (frame.sw / frame.sh);
-      const drawX = df.x - drawW / 2;
-      const drawY = df.y - drawH / 2;
+      const drawY = dfCY - drawH / 2;
       ctx.save();
       if (df.direction === -1) {
-        ctx.translate(df.x, 0);
+        ctx.translate(dfCX, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
           -drawW / 2, drawY, drawW, drawH);
       } else {
         ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-          drawX, drawY, drawW, drawH);
+          dfCX - drawW / 2, drawY, drawW, drawH);
       }
       ctx.restore();
       ctx.restore();
@@ -1554,7 +1703,7 @@ const Renderer = {
     }
 
     // Fallback: procedural dragonfly
-    ctx.translate(df.x, df.y);
+    ctx.translate(dfCX, dfCY);
 
     const flapAngle = Math.sin((time || Date.now()) * 0.01) * 0.5;
 
@@ -1671,6 +1820,14 @@ const Renderer = {
 
   drawHUD(ctx, level, lives, canvas) {
     ctx.save();
+
+    // Current level (top-left)
+    ctx.font = 'bold 18px Georgia';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillText('Level ' + level, 16, 29);
+    ctx.fillStyle = 'white';
+    ctx.fillText('Level ' + level, 15, 28);
 
     // Lives as hearts
     const heartImg = Assets.get('particle-heart');
@@ -2069,12 +2226,17 @@ const Renderer = {
     ctx.restore();
   },
 
-  drawKissCutscene(ctx, canvas, frog, prince, progress, time, level) {
+  drawKissCutscene(ctx, canvas, frog, prince, progress, time, level, cameraX) {
     ctx.save();
 
-    // Dark overlay for scene
+    // Dark overlay for scene (screen space)
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Frog/prince/heart positions are world coordinates — apply the
+    // camera transform or the whole cutscene renders off-screen
+    ctx.save();
+    ctx.translate(-(cameraX || 0), 0);
 
     const frogStartX = frog.x;
     const princeX = prince.x;
@@ -2085,14 +2247,14 @@ const Renderer = {
       const t = progress / 0.3;
       const interpX = frogStartX + (princeX - frogStartX - 40) * t;
       const fakeFrog = Object.assign({}, frog, { x: interpX });
-      this.drawFrog(ctx, fakeFrog, level);
+      this.drawFrog(ctx, fakeFrog, level, time);
       this.drawPrince(ctx, prince, time);
     }
 
     // Phase 2: Heart particles (0.3-0.5)
     if (progress > 0.3 && progress <= 0.5) {
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, level);
+      this.drawFrog(ctx, closeFrog, level, time);
       this.drawPrince(ctx, prince, time);
 
       const t = (progress - 0.3) / 0.2;
@@ -2109,19 +2271,19 @@ const Renderer = {
       const t = (progress - 0.5) / 0.3;
       const transformPrince = Object.assign({}, prince, { transformProgress: t });
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, level);
+      this.drawFrog(ctx, closeFrog, level, time);
       this.drawPrince(ctx, transformPrince, time);
 
-      // White flash
+      // White flash (offset by cameraX since we're in world space here)
       const flashAlpha = t < 0.33 ? t * 3 * 0.6 : (1 - (t - 0.33) / 0.67) * 0.6;
       ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(cameraX || 0, 0, canvas.width, canvas.height);
     }
 
     // Phase 4: Both as frogs, text (0.8-1.0)
     if (progress > 0.8) {
       const closeFrog = Object.assign({}, frog, { x: princeX - 40 });
-      this.drawFrog(ctx, closeFrog, level);
+      this.drawFrog(ctx, closeFrog, level, time);
 
       // Draw prince as a frog (use base frog sprite, no clothing)
       const princeFrog = {
@@ -2132,9 +2294,10 @@ const Renderer = {
         facing: -1,
         vy: 0
       };
-      this.drawFrog(ctx, princeFrog, 1);
+      this.drawFrog(ctx, princeFrog, 1, time);
     }
 
+    ctx.restore(); // camera transform
     ctx.restore();
   }
 
