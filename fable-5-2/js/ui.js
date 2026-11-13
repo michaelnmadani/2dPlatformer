@@ -486,7 +486,20 @@ Object.assign(Renderer, {
         ctx.textAlign = 'left';
         ctx.font = '700 11px ' + Fx.FONT_HEAD;
         ctx.fillStyle = 'white';
-        ctx.fillText(Fx.SCENE_NAMES[i], bx + 9, by + ch - 22);
+        // Long scene names wrap onto two lines instead of leaving the card
+        const name = Fx.SCENE_NAMES[i];
+        if (ctx.measureText(name).width > cw - 18 && name.indexOf(' ') > 0) {
+            const words = name.split(' ');
+            // Keep as many words on the first line as fit
+            let cut = 1;
+            for (let k = 2; k < words.length; k++) {
+                if (ctx.measureText(words.slice(0, k).join(' ')).width <= cw - 18) cut = k;
+            }
+            ctx.fillText(words.slice(0, cut).join(' '), bx + 9, by + ch - 35);
+            ctx.fillText(words.slice(cut).join(' '), bx + 9, by + ch - 22);
+        } else {
+            ctx.fillText(name, bx + 9, by + ch - 22);
+        }
         if (clothingNames && clothingNames[i]) {
           ctx.font = 'italic 10.5px ' + Fx.FONT_BODY;
           ctx.fillStyle = 'rgba(255,225,150,0.92)';

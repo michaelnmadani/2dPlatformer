@@ -1,6 +1,7 @@
 // Audio system using Web Audio API - every sound is generated in code:
-// effects, a gentle looping melody per scene, and scene ambience
-// (crickets, birdsong, rain, wind).
+// effects, music, and scene ambience (birdsong, rain, wind).
+// The music is an arrangement of Brahms' Lullaby (Wiegenlied, Op. 49
+// No. 4, 1868 — public domain), transposed and paced per scene.
 const Audio = (() => {
     let ctx = null;
     let master = null;      // everything routes through here (mute)
@@ -17,28 +18,53 @@ const Audio = (() => {
 
     try { muted = localStorage.getItem('frogPrinceFable52_muted') === '1'; } catch (e) {}
 
-    // Minor / major pentatonic, as semitone offsets over two octaves
-    const MINOR = [0, 3, 5, 7, 10, 12, 15, 17];
-    const MAJOR = [0, 2, 4, 7, 9, 12, 14, 16];
-    const _ = null;
-    const PATTERNS = [
-        [0, _, 2, _, 4, _, 2, 3, 4, _, 5, _, 4, _, 2, _, 0, _, 2, _, 3, _, 4, 2, 3, _, 2, _, 0, _, _, _],
-        [4, _, _, 2, 3, _, 4, _, 5, _, 4, _, 2, _, _, _, 3, _, _, 1, 2, _, 3, _, 4, _, 2, _, 0, _, _, _]
+    // Brahms' Lullaby as [semitones above the tonic, length in eighth
+    // notes]: a two-note pickup, then sixteen bars of 3/4
+    const MELODY = [
+        [4, 1], [4, 1],
+        [7, 3], [4, 1], [4, 2],
+        [7, 4], [4, 1], [7, 1],
+        [12, 2], [11, 3], [9, 1],
+        [9, 2], [7, 2], [2, 1], [4, 1],
+        [5, 2], [2, 2], [2, 1], [4, 1],
+        [5, 4], [2, 1], [5, 1],
+        [11, 1], [9, 1], [7, 2], [11, 2],
+        [12, 4], [0, 1], [0, 1],
+        [12, 4], [9, 1], [5, 1],
+        [7, 4], [4, 1], [0, 1],
+        [5, 2], [7, 2], [9, 2],
+        [7, 4], [0, 1], [0, 1],
+        [12, 4], [9, 1], [5, 1],
+        [7, 4], [4, 1], [0, 1],
+        [5, 2], [4, 2], [2, 2],
+        [0, 4]
     ];
-    const BASS = [0, 3, 2, 0];
+    // One chord per bar (root as semitones above the tonic), with the
+    // bass note and the soft dyad played on beats two and three
+    const CHORDS = [0, 0, 0, 7, 7, 7, 7, 0, 5, 0, 7, 0, 5, 0, 7, 0];
+    const BASS = { 0: 0, 7: -5, 5: -7 };
+    const DYAD = { 0: [4, 7], 7: [11, 14], 5: [9, 12] };
 
-    // root = MIDI note, bpm, scale, lead wave, ambience
+    // Lay the melody out on an eighth-note grid
+    const STEPS = [];
+    for (const note of MELODY) {
+        STEPS.push(note);
+        for (let i = 1; i < note[1]; i++) STEPS.push(null);
+    }
+    const LOOP = STEPS.length; // 96 eighths; the pickup closes bar 16
+
+    // root = MIDI note of the tonic, bpm, lead wave, ambience
     const SCENES = [
-        { root: 57, bpm: 76,  scale: MINOR, wave: 'triangle', amb: 'crickets' }, // Moonlit Pond
-        { root: 60, bpm: 104, scale: MAJOR, wave: 'triangle', amb: 'birds' },    // Sunny Meadow
-        { root: 62, bpm: 92,  scale: MINOR, wave: 'triangle', amb: 'birds' },    // Whispering Forest
-        { root: 53, bpm: 84,  scale: MAJOR, wave: 'sine',     amb: 'crickets' }, // Golden Sunset
-        { root: 52, bpm: 96,  scale: MINOR, wave: 'triangle', amb: 'rain' },     // Stormy Marsh
-        { root: 55, bpm: 72,  scale: MAJOR, wave: 'sine',     amb: 'wind' },     // Misty Dawn
-        { root: 59, bpm: 70,  scale: MINOR, wave: 'sine',     amb: 'wind' },     // Aurora Lake
-        { root: 57, bpm: 88,  scale: MAJOR, wave: 'triangle', amb: 'birds' },    // Cherry Blossom Brook
-        { root: 60, bpm: 116, scale: MAJOR, wave: 'triangle', amb: 'birds' },    // Tropical Lagoon
-        { root: 61, bpm: 80,  scale: MINOR, wave: 'sine',     amb: 'wind' }      // Cosmic Night
+        { root: 57, bpm: 76,  wave: 'triangle', amb: null },    // Moonlit Pond
+        { root: 60, bpm: 104, wave: 'triangle', amb: 'birds' }, // Sunny Meadow
+        { root: 62, bpm: 92,  wave: 'triangle', amb: 'birds' }, // Whispering Forest
+        { root: 65, bpm: 84,  wave: 'sine',     amb: null },    // Golden Sunset
+        { root: 64, bpm: 96,  wave: 'triangle', amb: 'rain' },  // Stormy Marsh
+        { root: 55, bpm: 72,  wave: 'sine',     amb: 'wind' },  // Misty Dawn
+        { root: 59, bpm: 70,  wave: 'sine',     amb: 'wind' },  // Aurora Lake
+        { root: 57, bpm: 88,  wave: 'triangle', amb: 'birds' }, // Cherry Blossom Brook
+        { root: 60, bpm: 116, wave: 'triangle', amb: 'birds' }, // Tropical Lagoon
+        { root: 61, bpm: 80,  wave: 'sine',     amb: 'wind' }   // Cosmic Night
     ];
 
     function getCtx() {
@@ -148,25 +174,21 @@ const Audio = (() => {
         ambNodes = [];
     }
 
-    function chirp(kind, t) {
-        if (kind === 'crickets') {
-            for (let i = 0; i < 3; i++) playTone(4300, 0.035, 'sine', 0.018, t + i * 0.07, musicBus);
-        } else if (kind === 'birds') {
-            const c = getCtx();
-            const base = 2100 + Math.random() * 900;
-            for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) {
-                const osc = c.createOscillator();
-                const gain = c.createGain();
-                const s = t + i * 0.16;
-                osc.frequency.setValueAtTime(base, s);
-                osc.frequency.exponentialRampToValueAtTime(base * 1.45, s + 0.09);
-                gain.gain.setValueAtTime(0.022, s);
-                gain.gain.exponentialRampToValueAtTime(0.0008, s + 0.11);
-                osc.connect(gain);
-                gain.connect(musicBus);
-                osc.start(s);
-                osc.stop(s + 0.13);
-            }
+    function birdsong(t) {
+        const c = getCtx();
+        const base = 2100 + Math.random() * 900;
+        for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) {
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            const s = t + i * 0.16;
+            osc.frequency.setValueAtTime(base, s);
+            osc.frequency.exponentialRampToValueAtTime(base * 1.45, s + 0.09);
+            gain.gain.setValueAtTime(0.022, s);
+            gain.gain.exponentialRampToValueAtTime(0.0008, s + 0.11);
+            osc.connect(gain);
+            gain.connect(musicBus);
+            osc.start(s);
+            osc.stop(s + 0.13);
         }
     }
 
@@ -176,24 +198,35 @@ const Audio = (() => {
         if (playing === null || !ctx) return;
         const sc = SCENES[playing];
         const stepDur = 60 / sc.bpm / 2;
-        const pattern = PATTERNS[playing % PATTERNS.length];
         if (nextStep < ctx.currentTime) nextStep = ctx.currentTime + 0.05;
         while (nextStep < ctx.currentTime + 0.35) {
-            const i = step % pattern.length;
-            const deg = pattern[i];
-            if (deg !== null) {
-                playTone(hz(sc.root + sc.scale[deg]), stepDur * 2.6, sc.wave, 0.075, nextStep, musicBus);
+            const i = step % LOOP;
+            // Every other time through, the tune moves up an octave on a
+            // softer voice, so the piece runs twice as long before repeating
+            const second = Math.floor(step / LOOP) % 2 === 1;
+            const note = STEPS[i];
+            if (note) {
+                playTone(hz(sc.root + note[0] + (second ? 12 : 0)), stepDur * note[1] + 0.4,
+                    second ? 'sine' : sc.wave, second ? 0.06 : 0.075, nextStep, musicBus);
             }
-            if (i % 8 === 0) {
-                const b = sc.scale[BASS[(i / 8) % BASS.length]];
-                playTone(hz(sc.root - 12 + b), stepDur * 7, 'sine', 0.085, nextStep, musicBus);
+            // Waltz accompaniment: bass on beat one, dyad on beats two and three
+            const inBar = i - 2;
+            if (inBar >= 0 && inBar % 2 === 0) {
+                const chord = CHORDS[Math.floor(inBar / 6)];
+                if (inBar % 6 === 0) {
+                    playTone(hz(sc.root - 12 + BASS[chord]), stepDur * 5, 'sine', 0.08, nextStep, musicBus);
+                } else {
+                    for (const d of DYAD[chord]) {
+                        playTone(hz(sc.root - 12 + d), stepDur * 1.8, 'sine', 0.028, nextStep, musicBus);
+                    }
+                }
             }
             nextStep += stepDur;
             step++;
         }
-        if (ctx.currentTime >= nextAmb) {
-            chirp(sc.amb, ctx.currentTime + 0.05);
-            nextAmb = ctx.currentTime + (sc.amb === 'crickets' ? 0.8 + Math.random() * 0.7 : 2 + Math.random() * 3.5);
+        if (sc.amb === 'birds' && ctx.currentTime >= nextAmb) {
+            birdsong(ctx.currentTime + 0.05);
+            nextAmb = ctx.currentTime + 2 + Math.random() * 3.5;
         }
     }
 
