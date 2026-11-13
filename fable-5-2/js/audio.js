@@ -1,7 +1,8 @@
 // Audio system using Web Audio API - every sound is generated in code:
 // effects, music, and scene ambience (birdsong, rain, wind).
-// The music is an arrangement of Brahms' Lullaby (Wiegenlied, Op. 49
-// No. 4, 1868 — public domain), transposed and paced per scene.
+// The music is a simplified arrangement based on the opening theme of
+// Debussy's "Clair de Lune" (Suite bergamasque, 1905 — public domain),
+// transposed and paced per scene.
 const Audio = (() => {
     let ctx = null;
     let master = null;      // everything routes through here (mute)
@@ -18,40 +19,37 @@ const Audio = (() => {
 
     try { muted = localStorage.getItem('frogPrinceFable52_muted') === '1'; } catch (e) {}
 
-    // Brahms' Lullaby as [semitones above the tonic, length in eighth
-    // notes]: a two-note pickup, then sixteen bars of 3/4
+    // Theme after "Clair de Lune": [semitones above the tonic, length in
+    // eighth notes], null = rest. Ten bars of 9/8: the falling line of
+    // sighing turn figures, with notes tied across the barlines.
     const MELODY = [
-        [4, 1], [4, 1],
-        [7, 3], [4, 1], [4, 2],
-        [7, 4], [4, 1], [7, 1],
-        [12, 2], [11, 3], [9, 1],
-        [9, 2], [7, 2], [2, 1], [4, 1],
-        [5, 2], [2, 2], [2, 1], [4, 1],
-        [5, 4], [2, 1], [5, 1],
-        [11, 1], [9, 1], [7, 2], [11, 2],
-        [12, 4], [0, 1], [0, 1],
-        [12, 4], [9, 1], [5, 1],
-        [7, 4], [4, 1], [0, 1],
-        [5, 2], [7, 2], [9, 2],
-        [7, 4], [0, 1], [0, 1],
-        [12, 4], [9, 1], [5, 1],
-        [7, 4], [4, 1], [0, 1],
-        [5, 2], [4, 2], [2, 2],
-        [0, 4]
+        [null, 1], [19, 9],
+        [16, 2], [14, 2], [16, 1], [14, 4],
+        [12, 3], [14, 2], [12, 4],
+        [16, 4], [12, 4],
+        [11, 3], [12, 2], [11, 4],
+        [9, 3], [11, 2], [9, 4],
+        [7, 3], [9, 2], [7, 4],
+        [5, 3], [7, 2], [5, 4],
+        [4, 9],
+        [null, 9]
     ];
-    // One chord per bar (root as semitones above the tonic), with the
-    // bass note and the soft dyad played on beats two and three
-    const CHORDS = [0, 0, 0, 7, 7, 7, 7, 0, 5, 0, 7, 0, 5, 0, 7, 0];
-    const BASS = { 0: 0, 7: -5, 5: -7 };
-    const DYAD = { 0: [4, 7], 7: [11, 14], 5: [9, 12] };
+    // As in the original, the tune is voiced in thirds: the scale note a
+    // third below each melody note
+    const THIRD_BELOW = { 19: 16, 16: 12, 14: 11, 12: 9, 11: 7, 9: 5, 7: 4, 5: 2, 4: 0 };
+    // One major chord per bar, as the bass note relative to the tonic
+    const CHORDS = [0, 0, -7, 0, -5, -7, 0, -5, 0, 0];
+    const BAR = 9;
+    // Rolling left-hand figure over each chord (semitones above its bass)
+    const ARPEGGIO = [0, 7, 12, 16, 19, 16, 12, 7, 12];
 
     // Lay the melody out on an eighth-note grid
     const STEPS = [];
     for (const note of MELODY) {
-        STEPS.push(note);
+        STEPS.push(note[0] === null ? null : note);
         for (let i = 1; i < note[1]; i++) STEPS.push(null);
     }
-    const LOOP = STEPS.length; // 96 eighths; the pickup closes bar 16
+    const LOOP = STEPS.length; // 90 eighths
 
     // root = MIDI note of the tonic, bpm, lead wave, ambience
     const SCENES = [
@@ -197,29 +195,30 @@ const Audio = (() => {
     function schedule() {
         if (playing === null || !ctx) return;
         const sc = SCENES[playing];
-        const stepDur = 60 / sc.bpm / 2;
+        // Keep every scene in a slow, moonlit range: brighter scenes are
+        // only a little quicker
+        const stepDur = 60 / (60 + (sc.bpm - 70) * 0.35) / 2;
         if (nextStep < ctx.currentTime) nextStep = ctx.currentTime + 0.05;
         while (nextStep < ctx.currentTime + 0.35) {
             const i = step % LOOP;
-            // Every other time through, the tune moves up an octave on a
-            // softer voice, so the piece runs twice as long before repeating
+            // Second time through, the left hand opens into rolling
+            // arpeggios, so the piece runs twice as long before repeating
             const second = Math.floor(step / LOOP) % 2 === 1;
             const note = STEPS[i];
             if (note) {
-                playTone(hz(sc.root + note[0] + (second ? 12 : 0)), stepDur * note[1] + 0.4,
-                    second ? 'sine' : sc.wave, second ? 0.06 : 0.075, nextStep, musicBus);
+                const dur = stepDur * note[1] + 0.6;
+                playTone(hz(sc.root + note[0]), dur, sc.wave, 0.07, nextStep, musicBus);
+                playTone(hz(sc.root + THIRD_BELOW[note[0]]), dur, 'sine', 0.04, nextStep, musicBus);
             }
-            // Waltz accompaniment: bass on beat one, dyad on beats two and three
-            const inBar = i - 2;
-            if (inBar >= 0 && inBar % 2 === 0) {
-                const chord = CHORDS[Math.floor(inBar / 6)];
-                if (inBar % 6 === 0) {
-                    playTone(hz(sc.root - 12 + BASS[chord]), stepDur * 5, 'sine', 0.08, nextStep, musicBus);
-                } else {
-                    for (const d of DYAD[chord]) {
-                        playTone(hz(sc.root - 12 + d), stepDur * 1.8, 'sine', 0.028, nextStep, musicBus);
-                    }
-                }
+            const beat = i % BAR;
+            const bass = sc.root - 12 + CHORDS[Math.floor(i / BAR)];
+            if (second) {
+                playTone(hz(bass + ARPEGGIO[beat]), stepDur * 3, 'sine', beat === 0 ? 0.06 : 0.026, nextStep, musicBus);
+            } else if (beat === 0) {
+                playTone(hz(bass), stepDur * 8, 'sine', 0.07, nextStep, musicBus);
+            } else if (beat === 3 || beat === 6) {
+                playTone(hz(bass + 12), stepDur * 2.5, 'sine', 0.024, nextStep, musicBus);
+                playTone(hz(bass + 16), stepDur * 2.5, 'sine', 0.024, nextStep, musicBus);
             }
             nextStep += stepDur;
             step++;
